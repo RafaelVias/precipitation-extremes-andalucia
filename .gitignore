@@ -1,0 +1,34 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+*.blg
+*.toc
+*.lot
+*.lof
+*.nav
+*.snm
+*.vrb
+*.bbl
+
+# R/knitr
+*-concordance.tex
+*.Rhistory
+.Rproj.user/
+**/cache/
+
+# Compiled outputs (regenerated from .Rnw sources)
+*.tex
+!*.Rnw
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*~
+*.tmp
+*.bak
