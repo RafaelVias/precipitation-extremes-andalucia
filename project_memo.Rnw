@@ -1,0 +1,1048 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---- Packages ----
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amssymb, bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{natbib}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage[normalem]{ulem}  % \sout{} for strikethrough in TODO list
+
+\definecolor{stanblue}{RGB}{38,70,130}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{darkgreen}{RGB}{0,100,0}
+\definecolor{noteorange}{RGB}{200,100,0}
+
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{gray}
+}
+
+\newcommand{\designnote}[1]{\par\noindent\textcolor{noteorange}{\textbf{Design Note:} #1}\par}
+\newcommand{\todo}[1]{\par\noindent\textcolor{red}{\textbf{TODO:} #1}\par}
+
+% ---- Title ----
+\title{Bayesian Spatial Extreme Value Analysis of Precipitation\\
+  in M\'{a}laga and Andaluc\'{\i}a\\[0.5em]
+  \large Project Documentation and Model Specification\\[0.3em]
+  \normalsize LGM\_precipitation}
+\author{
+  [PhD Student] \\ Department of Statistics, University of Iceland
+  \and
+  Jes\'{u}s V\'{\i}as \\ Department of Geology, University of M\'{a}laga, Spain
+}
+\date{Draft begun 3 March 2026 --- compiled \today}
+
+\begin{document}
+% concordance handled by knitr automatically
+\maketitle
+\tableofcontents
+\newpage
+
+% =============================================================================
+% PART I: PROJECT NARRATIVE
+% =============================================================================
+
+\part{Project Genesis and Design Decisions}
+
+% =============================================================================
+\section{How This Project Came About}
+\label{sec:genesis}
+% =============================================================================
+
+This project is a collaboration between a PhD student in statistics (based in
+Iceland, specialising in Bayesian latent Gaussian models) and his nephew, a
+geology professor at the University of M\'{a}laga who works on hydrogeological
+hazards in southern Spain.
+
+The motivation is direct: \textbf{rainfall, floods, and droughts} are problems
+of immediate concern to the people and infrastructure of M\'{a}laga and
+Andaluc\'{\i}a. Recent DANA (Depresi\'{o}n Aislada en Niveles Altos) events
+have caused devastating floods in eastern Spain, making probabilistic extreme
+rainfall analysis a topic of urgent practical relevance.
+
+Bayesian latent Gaussian models with spatial random effects are a powerful
+framework for modelling extremes of precipitation. The key reference is the
+final chapter of \citet{hrafnkelsson2023blgm}, which presents a BLGM for
+high-dimensional spatial extremes of daily rainfall --- methodology developed
+within our own research group at the University of Iceland.
+
+% =============================================================================
+\section{The Problem: Extreme Precipitation in M\'{a}laga and Andaluc\'{\i}a}
+\label{sec:problem}
+% =============================================================================
+
+% -----------------------------------------------------------------------------
+\subsection{Why This Matters}
+% -----------------------------------------------------------------------------
+
+M\'{a}laga province and the broader Andaluc\'{\i}a region are characterised by
+a Mediterranean climate with pronounced seasonal contrasts: long dry summers
+and a wet season concentrated in autumn--winter. This climatology creates a
+dual hazard:
+
+\begin{enumerate}
+  \item \textbf{Extreme rainfall and floods.} Short-duration, high-intensity
+    precipitation events --- often triggered by DANA (``gota fr\'{\i}a'')
+    systems --- can deliver a significant fraction of the annual rainfall total
+    in a matter of hours. The steep, short river basins draining the coastal
+    sierras into the Mediterranean respond rapidly, producing flash floods with
+    little warning time.
+
+  \item \textbf{Droughts.} Multi-year precipitation deficits are a recurring
+    feature of the regional climate, with severe consequences for agriculture,
+    municipal water supply, and aquifer recharge. The Guadalhorce and
+    Guadalmedina basins serving M\'{a}laga are particularly vulnerable.
+\end{enumerate}
+
+For both hazards, decision-makers need \emph{probabilistic} answers: not just
+``how much rain can we expect?'' but ``how much rain, with what probability,
+and how confident are we?'' Classical frequency analysis provides point
+estimates of return levels at individual stations but cannot:
+\begin{itemize}
+  \item Borrow strength across nearby stations to improve estimates at
+    data-sparse locations,
+  \item Predict return levels at ungauged sites (spatial interpolation),
+  \item Quantify the full posterior uncertainty in return level estimates,
+  \item Incorporate covariates (elevation, distance to coast, orographic
+    exposure) in a principled way.
+\end{itemize}
+
+A Bayesian spatial extreme value model addresses all four limitations.
+
+% -----------------------------------------------------------------------------
+\subsection{The DANA Phenomenon}
+\label{sec:dana}
+% -----------------------------------------------------------------------------
+
+DANA events (historically called ``gota fr\'{\i}a'') occur when a pocket of
+cold air at upper levels (typically 500\,hPa) becomes detached from the polar
+jet stream and drifts southward over the western Mediterranean. When this cold
+upper-level air mass encounters warm, moisture-laden air over the sea surface,
+the resulting instability drives intense convective precipitation.
+
+\todo{Add specific recent DANA events affecting M\'{a}laga/Andaluc\'{\i}a
+with dates and recorded precipitation totals. Jes\'{u}s to provide local
+context.}
+
+% =============================================================================
+\section{Research Questions}
+\label{sec:questions}
+% =============================================================================
+
+If successful, this project will produce Bayesian return level maps with full
+posterior uncertainty for extreme rainfall across M\'{a}laga and
+Andaluc\'{\i}a. Specifically, we aim to answer:
+
+\begin{enumerate}
+  \item \textbf{Spatial return levels.} What are the 20-, 50-, and 100-year
+    return levels for daily precipitation at any location in the study area,
+    including ungauged sites?
+
+  \item \textbf{Uncertainty mapping.} How uncertain are these return level
+    estimates? Where is uncertainty highest --- and where might additional
+    monitoring stations reduce it most?
+
+  \item \textbf{Drivers of spatial variation.} How do the GEV parameters
+    (location~$\mu$, scale~$\sigma$, shape~$\xi$) depend on geographic
+    covariates such as elevation, distance to coast, and orographic exposure?
+
+  \item \textbf{Infrastructure adequacy.} How do estimated return levels
+    compare against the rainfall thresholds used for drainage design, dam
+    sizing, and civil protection planning in M\'{a}laga?
+
+  \item \textbf{Benchmark against classical methods.} How much does the
+    Bayesian spatial model improve upon traditional at-site GEV fits that
+    ignore spatial structure?
+\end{enumerate}
+
+% =============================================================================
+\section{Methodological Approach}
+\label{sec:approach}
+% =============================================================================
+
+% -----------------------------------------------------------------------------
+\subsection{Overview}
+% -----------------------------------------------------------------------------
+
+We adopt a \textbf{Bayesian latent Gaussian model} for spatial extremes,
+following the framework of \citet{hazra2023blgm}. Instead of annual block
+maxima, we model \textbf{daily threshold exceedances} via the Poisson point
+process (PPP) likelihood, which provides a unified framework for both the
+exceedance rate and the tail behaviour.
+
+Inference proceeds via the \textbf{Max-and-Smooth} algorithm
+\citep{hrafnkelsson2021maxsmooth}:
+
+\begin{description}[style=nextline, labelwidth=3cm, leftmargin=3.5cm]
+  \item[\textbf{Stage~1 (Max)}] At each station, fit the Poisson point process
+    model independently to obtain MLEs of the transformed GEV parameters
+    $(\psi_i, \tau_i, \phi_i)$ and their covariance matrices (via parametric
+    bootstrap).
+
+  \item[\textbf{Stage~2 (Smooth)}] Treat the site-wise MLEs as data in a
+    Gaussian surrogate likelihood model with latent Gaussian spatial effects
+    (Mat\'{e}rn GP). Fit via MCMC (Stan/NUTS) to obtain spatially smoothed
+    posteriors for all parameters at every station.
+\end{description}
+
+The three-level hierarchical structure is:
+
+\begin{description}[style=nextline, labelwidth=3cm, leftmargin=3.5cm]
+  \item[\textbf{Data layer}] Daily precipitation threshold exceedances at
+    each station, modelled by the PPP likelihood with station-specific
+    GEV parameters $(\mu_i, \sigma_i, \xi_i)$.
+
+  \item[\textbf{Latent layer}] Transformed parameters
+    $\psi_i = \log(\mu_i)$, $\tau_i = \log(\sigma_i / \mu_i)$,
+    $\phi_i = h(\xi_i)$ are linked to intercepts plus Mat\'{e}rn(5/2)
+    Gaussian process spatial random effects and nuggets (for all three
+    parameters).
+
+  \item[\textbf{Prior layer}] Penalised complexity (PC) priors
+    \citep{simpson2017pc, fuglstad2019pc} on the GP hyperparameters
+    (range, marginal standard deviation) and nugget standard deviations.
+\end{description}
+
+% -----------------------------------------------------------------------------
+\subsection{Why Max-and-Smooth with PPP, Not INLA with GEV}
+\label{sec:ms_vs_inla}
+% -----------------------------------------------------------------------------
+
+Two inference strategies are available within the BLGM framework:
+
+\begin{enumerate}
+  \item \textbf{R-INLA + GEV block maxima} \citep{rue2009inla}: Fits a
+    hierarchical GEV model on annual maxima in a single coherent inference
+    step. Uses only one observation per station per year.
+
+  \item \textbf{Max-and-Smooth + PPP} \citep{hrafnkelsson2021maxsmooth,
+    hazra2023blgm}: Two-stage inference on daily threshold exceedances via
+    the Poisson point process likelihood. Stage~1 computes site-wise MLEs;
+    Stage~2 smooths them spatially via MCMC.
+\end{enumerate}
+
+We choose \textbf{Max-and-Smooth with the PPP likelihood} because:
+
+\begin{itemize}
+  \item The PPP likelihood uses \emph{all} daily exceedances above a
+    threshold, not just one observation per year. This extracts far more
+    information from the tail and yields more precise estimates, especially
+    for the shape parameter~$\xi$.
+  \item The PPP provides a unified model for both the exceedance rate and
+    the tail behaviour (unlike a GP + Bernoulli split, which would require
+    two separate models).
+  \item R-INLA does not directly support the PPP likelihood; M\&S provides
+    a natural MCMC-based inference framework for it.
+  \item The methodology follows exactly Chapter~7 of \citet{hrafnkelsson2023blgm},
+    providing a direct application of research from our group to a new domain.
+\end{itemize}
+
+\designnote{An INLA-based analysis using annual block maxima (GEV likelihood)
+could serve as a complementary comparison. The M\&S + PPP approach is
+preferred as the primary method due to its more efficient use of the data.}
+
+% -----------------------------------------------------------------------------
+\subsection{Why Station Data, Not Gridded Products}
+\label{sec:station_vs_grid}
+% -----------------------------------------------------------------------------
+
+Several gridded precipitation products exist for Spain (AEMET ROCIO, SPREAD,
+Spain02, Iberia01, ERA5-Land). However, all gridded products involve
+interpolation or model-based estimation, which tends to \textbf{smooth the
+tails} of the precipitation distribution --- exactly the part we care about
+for extreme value analysis.
+
+\begin{itemize}
+  \item \textbf{AEMET ROCIO} (5\,km): Optimal interpolation of station data.
+    Grid cell values are statistical estimates, not direct readings.
+  \item \textbf{SPREAD} (5\,km): Geostatistical interpolation with uncertainty
+    estimates. Better than ROCIO for our purposes, but still smoothed.
+  \item \textbf{ERA5 / ERA5-Land}: Reanalysis (numerical weather model output).
+    Documented to underestimate heavy ($\geq 20$\,mm/day) and violent
+    ($\geq 40$\,mm/day) precipitation over Spain.
+\end{itemize}
+
+We therefore use \textbf{raw AEMET rain gauge measurements} as our response
+variable. The spatial GP in the Bayesian model handles interpolation to
+ungauged locations in a principled way, without pre-smoothing the extremes.
+
+Gridded products may still serve as covariates or for spatial context (e.g.,
+ERA5 large-scale atmospheric fields as predictors of local extremes).
+
+% =============================================================================
+\section{Model Specification}
+\label{sec:model}
+% =============================================================================
+
+% -----------------------------------------------------------------------------
+\subsection{Notation}
+% -----------------------------------------------------------------------------
+
+Let $y_{ij}$ denote the $j$-th daily precipitation exceeding a threshold $u_i$
+at station~$i$ ($i = 1, \ldots, n$), and let $n_i^{\mathrm{ex}}$ denote the
+number of exceedances at station~$i$ over $n_T$ total observation days.
+Let $\mathbf{s}_i \in \mathbb{R}^2$ denote the spatial coordinates of
+station~$i$.
+
+% -----------------------------------------------------------------------------
+\subsection{Data Model: Poisson Point Process Likelihood}
+\label{sec:data_model}
+% -----------------------------------------------------------------------------
+
+Daily precipitation exceedances follow a Poisson point process (PPP) model.
+The PPP log-likelihood for station~$i$ with threshold~$u_i$, GEV
+parameters~$(\mu_i, \sigma_i, \xi_i)$, and $n_{py} = 365.25$ days per year
+is:
+%
+\begin{equation}
+  \ell_i(\mu_i, \sigma_i, \xi_i) =
+    -n_i^{\mathrm{ex}} \log \sigma_i
+    - \left(\frac{1}{\xi_i} + 1\right) \sum_{j=1}^{n_i^{\mathrm{ex}}}
+      \log\!\left[ 1 + \xi_i \frac{y_{ij} - \mu_i}{\sigma_i} \right]
+    - \frac{n_T}{n_{py}} \left[ 1 + \xi_i \frac{u_i - \mu_i}{\sigma_i}
+      \right]^{-1/\xi_i}
+  \label{eq:ppp_loglik}
+\end{equation}
+%
+where:
+\begin{itemize}
+  \item $\mu_i \in \mathbb{R}$ is the GEV location parameter,
+  \item $\sigma_i > 0$ is the GEV scale parameter,
+  \item $\xi_i \in \mathbb{R}$ is the GEV shape parameter ($\xi > 0$:
+    heavy-tailed Fr\'{e}chet; $\xi = 0$: Gumbel; $\xi < 0$: bounded Weibull),
+  \item $u_i$ is the station-specific threshold (we use the 75th percentile
+    of positive daily precipitation at each station).
+\end{itemize}
+
+The PPP unifies the exceedance rate and tail behaviour in a single likelihood:
+the third term in~\eqref{eq:ppp_loglik} governs the expected number of
+exceedances per year, while the second term models the tail of the exceedance
+magnitudes. The GEV parameters $(\mu_i, \sigma_i, \xi_i)$ map directly to
+those of the annual maxima distribution.
+
+Observations at different stations are modelled as \textbf{conditionally
+independent} given the GEV parameters; spatial dependence enters through the
+latent level.
+
+\designnote{This conditional independence assumption is standard for marginal
+return level estimation. Modelling joint extremes would require max-stable or
+r-Pareto processes --- a possible extension.}
+
+% -----------------------------------------------------------------------------
+\subsection{Latent Model and Parameterisation}
+\label{sec:latent_model}
+% -----------------------------------------------------------------------------
+
+Following \citet{hazra2023blgm}, the GEV parameters are reparameterised as:
+%
+\begin{align}
+  \psi_i &= \log(\mu_i)
+  \label{eq:psi} \\[4pt]
+  \tau_i &= \log(\sigma_i / \mu_i)
+  \label{eq:tau} \\[4pt]
+  \phi_i &= h(\xi_i) = a_\phi + b_\phi \log\!\big(-\log(1 - (\xi_i + 0.5)^{c_\phi})\big)
+  \label{eq:phi}
+\end{align}
+%
+where $c_\phi = 0.8$, and $a_\phi$, $b_\phi$ are constants chosen so that
+$h$ maps $\xi \in (-0.5, 0.5)$ to $\phi \in \mathbb{R}$, with inverse
+$g(\phi) = [1 - \exp(-\exp((\phi - a_\phi)/b_\phi))]^{1/c_\phi} - 0.5$.
+The bounded transformation prevents pathologically heavy or bounded tails.
+
+The latent model for the transformed parameters is:
+%
+\begin{align}
+  \psi_i &= \beta_\psi + w_\psi(\mathbf{s}_i)
+    + \varepsilon_i^\psi, \qquad
+    \varepsilon_i^\psi \sim N(0, \nu_\psi^2)
+  \label{eq:latent_psi} \\[4pt]
+  \tau_i &= \beta_\tau + w_\tau(\mathbf{s}_i)
+    + \varepsilon_i^\tau, \qquad
+    \varepsilon_i^\tau \sim N(0, \nu_\tau^2)
+  \label{eq:latent_tau} \\[4pt]
+  \phi_i &= \beta_\phi + w_\phi(\mathbf{s}_i)
+    + \varepsilon_i^\phi, \qquad
+    \varepsilon_i^\phi \sim N(0, \nu_\phi^2)
+  \label{eq:latent_phi}
+\end{align}
+%
+where:
+\begin{itemize}
+  \item $\beta_\psi$, $\beta_\tau$, $\beta_\phi$ are intercepts,
+  \item $w_\psi(\cdot)$, $w_\tau(\cdot)$, $w_\phi(\cdot)$ are zero-mean
+    Gaussian process spatial random effects with Mat\'{e}rn(5/2)
+    covariance (Section~\ref{sec:gp}),
+  \item $\nu_\psi^2$, $\nu_\tau^2$, $\nu_\phi^2$ are nugget variances.
+\end{itemize}
+
+\designnote{The book chapter \citep{hazra2023blgm} models $\phi$ with
+intercept $+$ nugget only (no spatial GP), arguing that $\xi$ shows little
+spatial structure. We include a GP for $\phi$ as well, letting the data
+decide. The posterior confirms weak spatial dependence for $\phi$:
+$\hat{\sigma}_\phi = 0.12$ (small marginal SD) and
+$\hat{\rho}_\phi = 3.6^{\circ}$ (very long range, effectively near-constant),
+consistent with the book's finding but achieved without imposing the
+constraint \emph{a priori}.}
+
+% -----------------------------------------------------------------------------
+\subsection{Mat\'{e}rn(5/2) Gaussian Process}
+\label{sec:gp}
+% -----------------------------------------------------------------------------
+
+Each spatial random effect $w_p(\cdot)$ ($p \in \{\psi, \tau, \phi\}$)
+is a zero-mean Gaussian process with a Mat\'{e}rn covariance function
+of smoothness $\nu = 5/2$:
+%
+\begin{equation}
+  C_p(\mathbf{s}, \mathbf{s}') = \sigma_p^2
+    \left(1 + \frac{\sqrt{5}\,d}{\rho_p}
+    + \frac{5\,d^2}{3\,\rho_p^2}\right)
+    \exp\!\left(-\frac{\sqrt{5}\,d}{\rho_p}\right)
+  \label{eq:matern52}
+\end{equation}
+%
+where $d = \|\mathbf{s} - \mathbf{s}'\|$ is the Euclidean distance
+(in degrees), $\sigma_p$ is the marginal standard deviation, and $\rho_p$
+is the practical range parameter.
+
+The joint prior on the spatial effects at the $n = 127$ station locations is:
+%
+\begin{equation}
+  \mathbf{w}_p = (w_p(\mathbf{s}_1), \ldots, w_p(\mathbf{s}_n))^\top
+  \sim N(\mathbf{0},\, \mathbf{K}_p)
+  \label{eq:gp_prior}
+\end{equation}
+%
+where $[\mathbf{K}_p]_{ij} = C_p(\mathbf{s}_i, \mathbf{s}_j)$. We use
+a non-centred parameterisation $\mathbf{w}_p = \mathbf{L}_p
+\boldsymbol{\eta}_p^{\mathrm{raw}}$, $\boldsymbol{\eta}_p^{\mathrm{raw}}
+\sim N(\mathbf{0}, \mathbf{I})$, where $\mathbf{L}_p$ is the Cholesky
+factor of $\mathbf{K}_p$, to improve MCMC sampling efficiency.
+
+\designnote{The original book chapter \citep{hazra2023blgm} uses the SPDE
+approach of \citet{lindgren2011spde} with Mat\'{e}rn($\nu = 1$) fields
+discretised on a triangular mesh, yielding a GMRF representation. Our
+direct GP approach with Mat\'{e}rn(5/2) operates on the $127 \times 127$
+dense covariance matrix, which is feasible at this problem size and avoids
+mesh-construction choices. The higher smoothness ($\nu = 5/2$ vs $\nu = 1$)
+produces smoother spatial fields, which is appropriate for slowly-varying
+climatological parameters.}
+
+% -----------------------------------------------------------------------------
+\subsection{Return Levels}
+\label{sec:return_levels}
+% -----------------------------------------------------------------------------
+
+The $p$-year return level at station~$i$ (or any predicted location) is the
+quantile:
+%
+\begin{equation}
+  z_p(\mathbf{s}_i) = \mu_i + \frac{\sigma_i}{\xi_i}
+    \left[ \left(-\log\!\left(1 - \frac{1}{p}\right)\right)^{-\xi_i}
+    - 1 \right]
+  \label{eq:return_level}
+\end{equation}
+%
+Because $(\mu_i, \sigma_i, \xi_i)$ are functions of latent Gaussian variables
+with full posterior distributions, we obtain posterior distributions for
+$z_p(\mathbf{s}_i)$ at every location --- including credible intervals and
+exceedance probabilities.
+
+% =============================================================================
+\section{Data}
+\label{sec:data}
+% =============================================================================
+
+% -----------------------------------------------------------------------------
+\subsection{Primary Source: AEMET Rain Gauge Network}
+\label{sec:aemet}
+% -----------------------------------------------------------------------------
+
+Daily precipitation data are obtained from the Agencia Estatal de
+Meteorolog\'{\i}a (AEMET) via the OpenData API, accessed through the
+\texttt{climaemet} R package \citep{climaemet2026}. Key details:
+
+\begin{itemize}
+  \item \textbf{Access:} Free API key from
+    \url{https://opendata.aemet.es/centrodedescargas/obtencionAPIKey}
+  \item \textbf{Variables:} Daily 24-hour accumulated precipitation (mm),
+    station coordinates, elevation, province
+  \item \textbf{Coverage:} $\sim$947 stations across Spain; to be filtered for
+    Andaluc\'{\i}a (provinces: M\'{a}laga, Sevilla, C\'{o}rdoba, Granada,
+    Ja\'{e}n, Almer\'{\i}a, C\'{a}diz, Huelva)
+  \item \textbf{Record length:} Oldest stations from $\sim$1960; no
+    minimum record length is imposed --- the Bayesian spatial model borrows
+    strength across stations, so even short-record stations contribute
+    useful spatial information
+  \item \textbf{Quality control:} Basic QC provided by AEMET; we apply
+    additional checks (negative values, implausible extremes, excessive
+    missing data)
+\end{itemize}
+
+% -----------------------------------------------------------------------------
+\subsection{Covariates}
+\label{sec:covariates}
+% -----------------------------------------------------------------------------
+
+Candidate spatial covariates for the latent model:
+
+\begin{enumerate}
+  \item \textbf{Elevation} (m a.s.l.) --- from station metadata or a DEM
+    (e.g., SRTM 90\,m, EU-DEM 25\,m)
+  \item \textbf{Distance to coast} (km) --- computed from station coordinates
+    and a Mediterranean/Atlantic coastline shapefile
+  \item \textbf{Orographic index} --- a measure of topographic exposure to
+    moisture-bearing winds; computed from the DEM as the mean gradient in the
+    dominant wind direction
+  \item \textbf{Longitude / latitude} --- to capture large-scale
+    east--west and north--south gradients in precipitation regime
+\end{enumerate}
+
+\todo{Jes\'{u}s to advise on additional covariates relevant to M\'{a}laga's
+microclimate: aspect relative to the Cordillera B\'{e}tica, distance to the
+Strait of Gibraltar, etc.}
+
+% -----------------------------------------------------------------------------
+\subsection{Supplementary Data Sources}
+\label{sec:supplementary_data}
+% -----------------------------------------------------------------------------
+
+\begin{description}[style=nextline]
+  \item[\textbf{AEMET ROCIO} (5\,km grid, 1951--present)]
+    Official AEMET gridded product, optimal interpolation from 3{,}236 stations.
+    Useful for spatial context and cross-validation, not as the primary response.
+
+  \item[\textbf{SPREAD} (5\,km grid, 1950--2012)]
+    Geostatistical interpolation with per-cell uncertainty estimates. Useful
+    for comparison and uncertainty propagation studies.
+
+  \item[\textbf{ERA5-Land} (9\,km, 1950--present)]
+    ECMWF reanalysis. Underestimates extremes over Spain, but valuable as a
+    source of large-scale atmospheric covariates (e.g., moisture flux,
+    synoptic typing for DANA identification).
+
+  \item[\textbf{SAIH Hidrosur}]
+    Real-time automatic rain gauges for the internal basins of Andaluc\'{\i}a.
+    Useful for validating recent extreme events but shorter records.
+\end{description}
+
+% =============================================================================
+% PART II: IMPLEMENTATION
+% =============================================================================
+
+\part{Implementation}
+
+% =============================================================================
+\section{R Environment and Packages}
+\label{sec:packages}
+% =============================================================================
+
+<<setup, include=FALSE>>=
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width  = 8,
+  fig.height = 5,
+  fig.path   = "figures/",
+  cache   = TRUE,
+  cache.path = "cache/"
+)
+@
+
+<<packages, eval=FALSE>>=
+# ---- Data acquisition ----
+library(climaemet)        # AEMET OpenData API wrapper
+library(sf)               # spatial features
+library(terra)            # raster handling
+
+# ---- Modelling (Max-and-Smooth) ----
+library(cmdstanr)         # Stan interface (Stage 2 MCMC)
+library(INLA)             # mesh construction (Stage 1 only)
+library(Matrix)           # sparse matrix algebra
+library(spam)             # sparse Cholesky decomposition
+library(fields)           # distance matrices
+library(coda)             # MCMC diagnostics
+library(evd)              # classical GEV fitting (baseline)
+
+# ---- Visualisation ----
+library(ggplot2)
+library(viridis)
+library(patchwork)
+
+# ---- General ----
+library(tidyverse)
+library(lubridate)
+@
+
+% =============================================================================
+\section{Data Acquisition}
+\label{sec:acquisition}
+% =============================================================================
+
+<<acquire-stations, eval=FALSE>>=
+# ---- Step 1: Get AEMET station inventory ----
+# Requires API key: aemet_api_key("YOUR_KEY", install = TRUE)
+
+stations <- aemet_stations()
+
+# Filter for Andalucia provinces
+andalucia_provs <- c("MALAGA", "SEVILLA", "CORDOBA", "GRANADA",
+                      "JAEN", "ALMERIA", "CADIZ", "HUELVA")
+
+stations_and <- stations %>%
+  filter(provincia %in% andalucia_provs) %>%
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326)
+
+cat("Stations in Andalucia:", nrow(stations_and), "\n")
+@
+
+<<acquire-daily, eval=FALSE>>=
+# ---- Step 2: Download daily precipitation ----
+# NOTE: AEMET API is rate-limited (50 requests/min).
+# Download in batches by station and date range.
+
+# Example: download for all Malaga stations, 1980-2024
+malaga_daily <- aemet_daily_clim(
+  station  = stations_and$indicativo[stations_and$provincia == "MALAGA"],
+  start    = "1980-01-01",
+  end      = "2024-12-31",
+  return_sf = TRUE
+)
+@
+
+<<compute-annual-maxima, eval=FALSE>>=
+# ---- Step 3: Compute annual block maxima ----
+annual_max <- daily_all %>%
+  mutate(year = year(fecha)) %>%
+  group_by(indicativo, year) %>%
+  summarise(
+    max_prec  = max(prec, na.rm = TRUE),
+    n_obs     = sum(!is.na(prec)),
+    .groups   = "drop"
+  ) %>%
+  # QC: require 90% completeness and finite max
+  filter(n_obs >= 330, is.finite(max_prec), max_prec >= 0)
+
+# No minimum-year threshold: the Bayesian spatial model borrows
+# strength across stations, so even short-record stations contribute.
+
+cat("Stations:", n_distinct(annual_max$indicativo), "\n")
+cat("Total station-year observations:", nrow(annual_max), "\n")
+@
+
+The acquisition scripts (\texttt{R/01\_acquire\_aemet\_data.R}) have been run.
+Key results:
+\begin{itemize}
+  \item 1{,}067{,}851 daily precipitation records downloaded (1960--2025)
+  \item 127 stations across all 8 Andaluc\'{\i}an provinces after QC
+    (Almer\'{\i}a~16, C\'{a}diz~15, C\'{o}rdoba~15, Granada~13,
+     Huelva~15, Ja\'{e}n~13, M\'{a}laga~24, Sevilla~16)
+  \item No minimum record length imposed: the Bayesian spatial model borrows
+    strength
+\end{itemize}
+
+% =============================================================================
+\section{Exploratory Analysis}
+\label{sec:eda}
+% =============================================================================
+
+EDA is implemented in \texttt{R/02\_exploratory\_analysis.R} and produces
+8 diagnostic figures. Key findings:
+\begin{itemize}
+  \item All at-site GEV shape parameters $\hat{\xi} > 0$ (Fr\'{e}chet-type,
+    heavy tails), ranging from 0.04 (Sevilla, Granada) to 0.27 (C\'{o}rdoba)
+  \item Strong spatial gradients: M\'{a}laga Airport has the highest
+    $\hat{\mu} = 56$ mm; Grazalema (C\'{a}diz) is the overall wettest site
+  \item Empirical variogram of annual maxima shows clear spatial dependence
+    up to $\sim$200\,km
+  \item Positive elevation--maxima relationship, consistent with orographic
+    enhancement
+\end{itemize}
+
+% =============================================================================
+\section{Max-and-Smooth Model Fitting}
+\label{sec:ms_fitting}
+% =============================================================================
+
+The M\&S analysis is implemented in two stages:
+Stage~1 in \texttt{R/03\_max\_and\_smooth.R} using functions from the
+companion code to \citet{hazra2023blgm} (\texttt{vendor/max\_and\_smooth/}),
+and Stage~2 in \texttt{R/03d\_smooth\_matern\_pc.R} using a custom
+Stan program (\texttt{Stan/smooth\_matern\_pc.stan}).
+
+% -----------------------------------------------------------------------------
+\subsection{Stage~1: Site-wise Poisson Point Process MLEs}
+% -----------------------------------------------------------------------------
+
+For each of the 127 stations, we:
+\begin{enumerate}
+  \item Set the threshold $u_i$ as the 75th percentile of positive daily
+    precipitation (range: 3.0--23.9\,mm, median 8.4\,mm).
+  \item Maximise the PPP log-likelihood~\eqref{eq:ppp_loglik} to obtain MLEs
+    $(\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)$.
+  \item Compute the covariance matrix of the estimators via 1{,}000
+    parametric bootstrap samples.
+\end{enumerate}
+
+All 127 stations converge. The MLEs on the original scale are:
+\begin{itemize}
+  \item $\hat{\mu}$: 20.0--131.0\,mm (median 42.6\,mm)
+  \item $\hat{\sigma}$: 6.6--36.9\,mm (median 13.5\,mm)
+  \item $\hat{\xi}$: $-0.026$ to $0.312$ (median 0.104)
+\end{itemize}
+
+% -----------------------------------------------------------------------------
+\subsection{Stage~2: MCMC Smoothing with Mat\'{e}rn GP (Stan)}
+% -----------------------------------------------------------------------------
+
+Stage~2 fits the Gaussian surrogate likelihood to the Stage~1 MLEs,
+incorporating Mat\'{e}rn(5/2) GP spatial random effects for all three
+transformed parameters ($\psi$, $\tau$, $\phi$). The model is implemented
+in Stan \citep{carpenter2017stan} using the No-U-Turn Sampler (NUTS):
+\begin{itemize}
+  \item 4 chains $\times$ 2{,}000 iterations (1{,}000 warmup $+$
+    1{,}000 sampling) $= 4{,}000$ posterior draws
+  \item \texttt{adapt\_delta} $= 0.9$, \texttt{max\_treedepth} $= 12$
+  \item Non-centred parameterisation for the GP (see Section~\ref{sec:gp})
+  \item Runtime: $\sim$130 minutes on 4 CPU cores
+  \item Divergences: 112/4{,}000 (3\%), spread evenly across chains;
+    all $\hat{R} \leq 1.01$
+\end{itemize}
+
+\paragraph{PC priors.} We use penalised complexity priors
+\citep{simpson2017pc, fuglstad2019pc} on all hyperparameters, calibrated
+via probability statements:
+\begin{itemize}
+  \item GP marginal SD: $\sigma_p \sim \mathrm{Exp}(\lambda_\sigma)$ with
+    $\lambda_\sigma = 3.0$, i.e.\ $P(\sigma_p > 1) = 0.05$
+  \item GP range: $\pi(\rho_p) = \lambda_\rho \, \rho_p^{-2} \,
+    \exp(-\lambda_\rho / \rho_p)$ with $\lambda_\rho = 0.30$, i.e.\
+    $P(\rho_p < 0.1^{\circ}) = 0.05$
+  \item Nugget SD: $\nu_p \sim \mathrm{Exp}(\lambda_\nu)$ with
+    $\lambda_\nu = 6.0$, i.e.\ $P(\nu_p > 0.5) = 0.05$
+  \item Intercepts: $\beta_p \sim N(0, 100^2)$ (weakly informative)
+\end{itemize}
+
+\paragraph{Posterior hyperparameter summaries:}
+\begin{center}
+\begin{tabular}{lrrl}
+\toprule
+Parameter & Posterior mean & 95\% CI & Interpretation \\
+\midrule
+$\beta_\psi$ & 3.67 & (3.41, 3.87) & Intercept for $\log(\mu)$ \\
+$\beta_\tau$ & $-1.04$ & ($-1.33$, $-0.66$) & Intercept for $\log(\sigma/\mu)$ \\
+$\beta_\phi$ & 0.18 & (0.01, 0.49) & Intercept for shape \\[4pt]
+$\sigma_\psi$ & 0.26 & (0.18, 0.41) & GP marginal SD for $\psi$ \\
+$\sigma_\tau$ & 0.23 & (0.12, 0.49) & GP marginal SD for $\tau$ \\
+$\sigma_\phi$ & 0.12 & (0.03, 0.40) & GP marginal SD for $\phi$ \\[4pt]
+$\rho_\psi$ & 0.70 & (0.45, 1.07) & GP range for $\psi$ (degrees) \\
+$\rho_\tau$ & 1.65 & (0.99, 2.75) & GP range for $\tau$ (degrees) \\
+$\rho_\phi$ & 3.61 & (0.98, 10.88) & GP range for $\phi$ (degrees) \\[4pt]
+$\nu_\psi$ & 0.150 & (0.125, 0.179) & Nugget SD for $\psi$ \\
+$\nu_\tau$ & 0.011 & (0.002, 0.019) & Nugget SD for $\tau$ \\
+$\nu_\phi$ & 0.003 & ($<$0.001, 0.007) & Nugget SD for $\phi$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\designnote{The GP range for $\phi$ ($\rho_\phi = 3.6^{\circ}$, 95\% CI:
+0.98--10.9$^{\circ}$) is poorly constrained, with a posterior that wanders
+to values exceeding the study domain diameter ($\sim$6$^{\circ}$). Combined
+with the small marginal SD ($\sigma_\phi = 0.12$), this
+confirms that the shape parameter has minimal spatial structure --- the GP
+for $\phi$ is effectively fitting a near-constant surface. This is
+consistent with the book chapter's decision to omit the spatial GP for
+$\phi$.}
+
+\paragraph{Prior sensitivity.} We also fitted the model with weakly
+informative priors (Inverse-Gamma for range, Exponential for SD) instead
+of PC priors. The posteriors for $\psi$ and $\tau$ are virtually identical
+under both prior specifications; only the weakly-identified $\phi$
+hyperparameters shift. Station-level 100-year return levels differ by
+$< 1$\,mm, confirming that the results are robust to the choice of prior.
+The PC prior model is retained as the primary specification due to its
+principled construction and connection to the reference methodology.
+
+% -----------------------------------------------------------------------------
+\subsection{Smoothing Effect}
+% -----------------------------------------------------------------------------
+
+Spatial smoothing substantially reduces the variability of the parameter
+estimates compared to the site-wise MLEs:
+\begin{itemize}
+  \item $\mu$: MLE range 20.0--131.0 $\rightarrow$ smoothed 20.8--128.7\,mm
+  \item $\sigma$: MLE range 6.6--36.9 $\rightarrow$ smoothed 7.3--38.6\,mm
+  \item $\xi$: MLE range $-0.026$ to $0.312$ $\rightarrow$ smoothed 0.065 to
+    0.215
+\end{itemize}
+
+The strongest smoothing effect is on the shape parameter, where 127 noisy
+site-wise estimates are pulled toward a common value of $\xi \approx 0.10$
+(median 0.097), consistent with the relatively homogeneous heavy-tailed
+(Fr\'{e}chet-type) precipitation regime across Andaluc\'{\i}a.
+
+% =============================================================================
+\section{Results: Return Level Maps}
+\label{sec:results}
+% =============================================================================
+
+Return levels are computed from the posterior chains using
+equation~\eqref{eq:return_level}.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Return period & Range of posterior mean (mm) & Range of posterior SD (mm) \\
+\midrule
+20-year  & 48.4 -- 260.2 & 2.1 -- 12.1 \\
+50-year  & 59.2 -- 309.3 & 2.8 -- 16.8 \\
+100-year & 68.3 -- 348.9 & 3.5 -- 21.5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The Mediterranean coast shows the highest extremes overall, while inland
+Granada and semi-arid Almer\'{\i}a have the lowest. By province, median
+100-year return levels are: M\'{a}laga (158\,mm), C\'{a}diz (136\,mm),
+Huelva (129\,mm), Sevilla (116\,mm), Almer\'{\i}a (104\,mm), C\'{o}rdoba
+(103\,mm), Ja\'{e}n (98\,mm), Granada (97\,mm).
+
+Figure~\ref{fig:interpolated} shows the posterior predictive interpolation
+maps for the GEV parameters and 100-year return level, produced via
+kriging on a $0.025^{\circ}$ grid covering Andaluc\'{\i}a.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{figures/interpolated_maps_pc.png}
+  \caption{Posterior predictive interpolation maps (Mat\'{e}rn GP + PC
+    priors). Top row: GEV location ($\hat{\mu}$, mm), scale
+    ($\hat{\sigma}$, mm), and shape ($\hat{\xi}$). Bottom row: 100-year
+    return level (posterior mean, mm), posterior SD (mm), and coefficient
+    of variation. Hollow circles indicate station locations.}
+  \label{fig:interpolated}
+\end{figure}
+
+\todo{Extend the discussion:
+\begin{itemize}
+  \item Compare M\&S return levels against at-site GEV fits at long-record
+    stations to quantify the benefit of spatial borrowing
+  \item Cross-validation: leave-one-station-out predictive check
+  \item Add covariates (elevation, distance to coast) to the latent model
+  \item Discuss implications for infrastructure design thresholds in M\'{a}laga
+  \item Relax completeness filter (330~$\to$~280 days) with season-aware
+    criterion; 19 rejected station-years have annual max $>$~100\,mm
+  \item Non-stationary GEV: time-varying $\mu(t)$ or $\sigma(t)$ to account
+    for climate trends (current model assumes stationarity 1960--2025)
+\end{itemize}}
+
+% =============================================================================
+% APPENDIX: PROPOSED JOINT DAILY--GEV MODEL
+% =============================================================================
+
+\newpage
+\appendix
+\section{Proposed extension: joint daily--GEV model}
+\label{sec:joint-model}
+
+The current Max-and-Smooth analysis treats annual block maxima as the
+fundamental data unit. This appendix outlines a proposed extension that models
+\emph{daily} rainfall directly, enabling principled imputation of missing
+observations and a tighter link between the daily rainfall process and the
+extreme value model.
+
+\subsection{Motivation}
+
+Our 90\% completeness filter (requiring $\geq 330$ daily observations per
+station-year) discards 528 of 3029 station-years (17\%), including 19 with
+annual maxima exceeding 100\,mm. Analysis of the missing days shows that
+gaps are distributed across the calendar year (not concentrated in summer),
+so some informative extreme events may be lost. The core question is: if a
+station was offline during October (peak DANA season), what might we be
+missing?
+
+A secondary motivation is that the GEV shape parameter~$\xi$ --- which
+governs tail heaviness and is our most uncertain parameter --- is currently
+estimated from $\sim$2500 annual maxima. A daily model would inform $\xi$
+from $\sim$1\,000\,000 daily observations, dramatically sharpening the
+tail estimate.
+
+\subsection{Model structure}
+
+The proposed model has a modular structure with a one-directional dependency:
+the daily model is estimated first (or jointly), and the GEV emerges as a
+derived consequence.
+
+\paragraph{Layer 1: Daily rainfall process.}
+For station~$s$ on day~$t$, daily precipitation follows a hurdle model:
+\begin{align}
+  P(Y_{s,t} > 0) &= \mathrm{logit}^{-1}\bigl(\alpha_0(s) + f_p(d(t), s)\bigr),
+    \label{eq:hurdle-occ} \\
+  Y_{s,t} \mid Y_{s,t} > 0 &\sim \mathrm{GPD}\bigl(\sigma(s, d(t)),\;
+    \xi(s)\bigr) \quad \text{for } Y_{s,t} > u(s),
+    \label{eq:gpd-tail}
+\end{align}
+where $d(t)$ is the day-of-year (1--365), $f_p(\cdot)$ is a smooth seasonal
+function (e.g.\ Fourier harmonics or cyclic spline), $u(s)$ is a high
+threshold (e.g.\ the 95th percentile of wet-day amounts), and the
+Generalized Pareto Distribution (GPD) models exceedances above~$u$.
+
+Below the threshold, positive rainfall amounts can be modelled by a simpler
+distribution (e.g.\ Gamma), since only the tail matters for extremes.
+
+\paragraph{Layer 2: Shared spatial fields.}
+All spatially varying parameters are given Mat\'{e}rn(5/2) GP priors, as in
+the current model:
+\begin{itemize}
+  \item $\xi(s) \sim \mathrm{GP}$ --- the tail shape, shared between the
+    GPD (daily tail) and the implied GEV (block maxima)
+  \item $\sigma(s, d(t))$ --- GPD scale with seasonal modulation
+  \item $\alpha_0(s) \sim \mathrm{GP}$ --- baseline wet-day probability
+  \item $f_p(d(t), s)$ --- seasonal component, borrowing strength across
+    nearby stations
+\end{itemize}
+
+\paragraph{Layer 3: The GEV--GPD link.}
+The Pickands--Balkema--de~Haan theorem guarantees that if daily exceedances
+follow a $\mathrm{GPD}(\sigma, \xi)$ with exceedance rate~$\lambda$ per
+block, the block maximum converges to a $\mathrm{GEV}(\mu, \tilde\sigma,
+\xi)$ with:
+\begin{equation}
+  \xi_{\mathrm{GEV}} = \xi_{\mathrm{GPD}}, \qquad
+  \tilde\sigma = \sigma \, \lambda^{\xi}, \qquad
+  \mu = u + \frac{\sigma}{\xi}(\lambda^{\xi} - 1).
+  \label{eq:gev-gpd-link}
+\end{equation}
+This means the GEV parameters are \emph{derived quantities} --- not
+separately estimated --- and the shape parameter~$\xi$ is informed by all
+daily tail observations, not just annual maxima.
+
+\paragraph{Layer 4: Missing data imputation.}
+Within each MCMC iteration:
+\begin{enumerate}
+  \item Sample missing daily values from the posterior predictive of the
+    hurdle model, conditional on the current seasonal--spatial parameters
+    and the observed days at that station and its neighbours.
+  \item Recompute block maxima from observed~$+$ imputed daily values. Some
+    imputed values may exceed the observed annual maximum, properly reflecting
+    the uncertainty from incomplete records.
+  \item Evaluate the GEV likelihood (or derive return levels directly from
+    the augmented daily series).
+\end{enumerate}
+
+\subsection{Implementation plan}
+
+\begin{enumerate}
+  \item \textbf{Phase 1: Single-station prototype.} Fit the hurdle + GPD
+    model to M\'{a}laga Aeropuerto (66~years, 23\,190 daily obs) in Stan.
+    Validate the seasonal cycle and compare the implied GEV against the
+    current station-level MLE.
+  \item \textbf{Phase 2: Verify the GEV--GPD link.} From the fitted daily
+    model, derive GEV parameters via~\eqref{eq:gev-gpd-link} and compare
+    with existing return level estimates.
+  \item \textbf{Phase 3: Multi-station spatial model.} Extend to all 127
+    stations with shared GP priors on $\xi(s)$, $\sigma(s)$, and the
+    seasonal parameters.
+  \item \textbf{Phase 4: Missing data integration.} Impute missing days
+    within the MCMC loop; compare return levels with and without imputation.
+  \item \textbf{Phase 5: Non-stationarity.} Add a time trend to
+    $\mu(t)$ or $\sigma(t)$ to model climate change effects on extremes.
+\end{enumerate}
+
+\designnote{The daily model is estimated independently of (or jointly with)
+the GEV --- the dependency is one-directional. The daily process has
+$\sim$1\,000\,000 observations to learn from, so allowing the GEV to
+feed back into the daily model (a fully joint approach) would provide
+only marginal additional information. The modular approach is therefore
+a good approximation and substantially simpler to implement.}
+
+% =============================================================================
+% REFERENCES
+% =============================================================================
+
+\newpage
+\bibliographystyle{apalike}
+
+\begin{thebibliography}{99}
+
+\bibitem[Hazra et al., 2023]{hazra2023blgm}
+Hazra, A., Huser, R., and J\'{o}hannesson, \'{A}.~V. (2023).
+\newblock Bayesian latent Gaussian models for high-dimensional spatial
+  extremes.
+\newblock In Hrafnkelsson, B., editor, \emph{Statistical Modeling Using
+  Bayesian Latent Gaussian Models}, chapter~7, pages 219--246. Springer.
+
+\bibitem[Hrafnkelsson, 2023]{hrafnkelsson2023blgm}
+Hrafnkelsson, B., editor (2023).
+\newblock \emph{Statistical Modeling Using Bayesian Latent Gaussian Models:
+  With Applications in Geophysics and Environmental Sciences}.
+\newblock Springer.
+
+\bibitem[Hrafnkelsson et al., 2021]{hrafnkelsson2021maxsmooth}
+Hrafnkelsson, B., Siegert, S., Huser, R., Bakka, H., and
+  J\'{o}hannesson, \'{A}.~V. (2021).
+\newblock Max-and-Smooth: estimation of multivariate latent Gaussian models
+  using the {M}ax-and-{S}mooth algorithm.
+\newblock \emph{Bayesian Analysis}, 16(4):1--29.
+
+\bibitem[Lindgren et al., 2011]{lindgren2011spde}
+Lindgren, F., Rue, H., and Lindstr\"{o}m, J. (2011).
+\newblock An explicit link between {G}aussian fields and {G}aussian {M}arkov
+  random fields: the stochastic partial differential equation approach.
+\newblock \emph{Journal of the Royal Statistical Society: Series B},
+  73(4):423--498.
+
+\bibitem[Rue et al., 2009]{rue2009inla}
+Rue, H., Martino, S., and Chopin, N. (2009).
+\newblock Approximate {B}ayesian inference for latent {G}aussian models by
+  using integrated nested {L}aplace approximations.
+\newblock \emph{Journal of the Royal Statistical Society: Series B},
+  71(2):319--392.
+
+\bibitem[Simpson et al., 2017]{simpson2017pc}
+Simpson, D., Rue, H., Riebler, A., Martins, T.~G., and S{\o}rbye, S.~H.
+  (2017).
+\newblock Penalising model component complexity: a principled, practical
+  approach to constructing priors.
+\newblock \emph{Statistical Science}, 32(1):1--28.
+
+\bibitem[Carpenter et al., 2017]{carpenter2017stan}
+Carpenter, B., Gelman, A., Hoffman, M.~D., Lee, D., Goodrich, B.,
+  Betancourt, M., Brubaker, M., Guo, J., Li, P., and Riddell, A. (2017).
+\newblock Stan: a probabilistic programming language.
+\newblock \emph{Journal of Statistical Software}, 76(1):1--32.
+
+\bibitem[Fuglstad et al., 2019]{fuglstad2019pc}
+Fuglstad, G.-A., Simpson, D., Lindgren, F., and Rue, H. (2019).
+\newblock Constructing priors that penalize the complexity of {G}aussian
+  random fields.
+\newblock \emph{Journal of the American Statistical Association},
+  114(525):445--452.
+
+\bibitem[{climaemet}, 2026]{climaemet2026}
+{rOpenSpain} (2026).
+\newblock \emph{climaemet: Climate AEMET Tools for R}.
+\newblock R package version 1.4.0,
+  \url{https://ropenspain.github.io/climaemet/}.
+
+\bibitem[V\'{\i}as et al., 2006]{vias2006cop}
+V\'{\i}as, J.~M., Andreo, B., Perles, M.~J., Carrasco, F., Vadillo, I.,
+  and Jim\'{e}nez, P. (2006).
+\newblock Proposed method for groundwater vulnerability mapping in carbonate
+  (karstic) aquifers: the {COP} method.
+\newblock \emph{Hydrogeology Journal}, 14(6):912--925.
+
+\end{thebibliography}
+
+\end{document}
