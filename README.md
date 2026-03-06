@@ -1,3 +1,5 @@
+🇬🇧 English | [🇪🇸 Español](README.es.md)
+
 # Spatial Extreme Precipitation in Andalucía
 
 Bayesian spatial extreme value analysis of daily precipitation across Andalucía, Spain, using the **Max-and-Smooth** two-stage framework with Matérn(5/2) Gaussian process spatial smoothing and penalised complexity (PC) priors.
@@ -124,6 +126,7 @@ Rscript R/04_return_level_maps.R    # Return level maps (Figure 1)
 Rscript R/05_exceedance_maps.R      # Exceedance probability maps (Figure 2)
 Rscript R/06_station_diagnostics.R  # Station return level curves (Figure 3)
 Rscript R/07_convergence_diagnostics.R  # MCMC convergence diagnostics (diagnostics/)
+Rscript R/08_spanish_figures.R      # Figuras en español (figures/es/)
 ```
 
 ## References
