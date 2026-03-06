@@ -111,6 +111,7 @@ Rscript R/03_stage2_smooth.R        # Stage 2: spatial GP smoothing in Stan (~18
 Rscript R/04_return_level_maps.R    # Return level maps (Figure 1)
 Rscript R/05_exceedance_maps.R      # Exceedance probability maps (Figure 2)
 Rscript R/06_station_diagnostics.R  # Station return level curves (Figure 3)
+Rscript R/07_convergence_diagnostics.R  # MCMC convergence diagnostics (diagnostics/)
 ```
 
 ## References
