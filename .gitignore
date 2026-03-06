@@ -1,31 +1,13 @@
 # Compiled Stan models (regenerated at runtime)
 Stan/*/
 
-# LaTeX build artifacts
-*.aux
-*.log
-*.out
-*.synctex.gz
-*.fdb_latexmk
-*.fls
-*.blg
-*.toc
-*.lot
-*.lof
-*.nav
-*.snm
-*.vrb
-*.bbl
+# Large data files (regenerable from pipeline)
+data/daily_precip_andalucia_raw.rds
+data/stage2_matern_pc_results.rds
 
-# R/knitr
-*-concordance.tex
+# R
 *.Rhistory
 .Rproj.user/
-**/cache/
-
-# Compiled outputs (regenerated from .Rnw sources)
-*.tex
-!*.Rnw
 
 # OS files
 .DS_Store
