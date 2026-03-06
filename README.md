@@ -23,11 +23,11 @@ $$F(z) = \exp\left[-\left(1 + \xi \frac{z - \mu}{\sigma}\right)^{-1/\xi}\right]$
 
 with location $\mu$, scale $\sigma > 0$, and shape $\xi$. The parameters are reparametrised as
 
-$$(\psi, \tau, \phi) = (\log \mu, \log(\sigma / \mu), h(\xi))$$
+$$(\psi, \tau, \phi) = (\log(\mu), \log(\sigma / \mu), h(\xi))$$
 
 where $h$ is a smooth bijection mapping $\xi \in (-0.5, 0.5)$ to the real line:
 
-$$h(\xi) = a + b \cdot \log(-\log(1 - u^c)), \quad u = \frac{\xi - \xi_{\min}}{\xi_{\max} - \xi_{\min}}$$
+$$h(\xi) = a + b \cdot \log(-\log(1 - u^c)),\quad u = \frac{\xi - \xi_{\min}}{\xi_{\max} - \xi_{\min}}$$
 
 with constants $c = 0.8$, $a$ and $b$ chosen so that $h(0) \approx 0$. This ensures all three working parameters are unbounded, which is essential for the Gaussian surrogate likelihood and the GP prior in Stage 2.
 
