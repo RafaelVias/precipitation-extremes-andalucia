@@ -27,7 +27,7 @@ $$(\psi, \tau, \phi) = (\log \mu, \log(\sigma / \mu), h(\xi))$$
 
 where $h$ is a smooth bijection mapping $\xi \in (-0.5, 0.5)$ to the real line:
 
-$$h(\xi) = a + b \log(-\log(1 - u^c)), \quad u = \frac{\xi - \xi_{\min}}{\xi_{\max} - \xi_{\min}}$$
+$$h(\xi) = a + b \cdot \log(-\log(1 - u^c)), \quad u = \frac{\xi - \xi_{\min}}{\xi_{\max} - \xi_{\min}}$$
 
 with constants $c = 0.8$, $a$ and $b$ chosen so that $h(0) \approx 0$. This ensures all three working parameters are unbounded, which is essential for the Gaussian surrogate likelihood and the GP prior in Stage 2.
 
