@@ -4,6 +4,12 @@
 
 Análisis bayesiano espacial de valores extremos de precipitación diaria en Andalucía, España, utilizando el marco de dos etapas **Max-and-Smooth** con suavizado espacial mediante procesos gaussianos con covarianza Matérn(5/2) y priors de complejidad penalizada (PC).
 
+## Introducción
+
+La precipitación diaria extrema es un dato clave para la evaluación del riesgo de inundaciones, el diseño de infraestructuras y la planificación de recursos hídricos. Estimar la rareza de un evento de lluvia determinado — y cómo esa rareza varía en el espacio — requiere ajustar modelos estadísticos a los datos observados. Cuando los registros de estaciones individuales son cortos o escasos, las estimaciones estación por estación pueden ser ruidosas y espacialmente inconsistentes.
+
+El objetivo de este proyecto es proporcionar estimaciones espacialmente continuas de **niveles de retorno** (la cantidad de precipitación que se espera superar en promedio una vez cada *T* años) y **probabilidades de excedencia** (la probabilidad de superar un umbral crítico dentro de un horizonte de planificación) en toda Andalucía, como apoyo a la evaluación del riesgo de inundaciones y la planificación hidrológica en la región. Utilizando registros de precipitación diaria de 127 estaciones de AEMET, el marco de dos etapas **Max-and-Smooth** (Hrafnkelsson et al., 2021) ajusta una distribución GEV en cada estación de forma independiente y luego comparte información entre estaciones a través de un prior de proceso gaussiano Matérn, produciendo mapas espacialmente coherentes con cuantificación completa de la incertidumbre.
+
 ## Datos
 
 - **Fuente**: API OpenData de AEMET (Agencia Estatal de Meteorología)

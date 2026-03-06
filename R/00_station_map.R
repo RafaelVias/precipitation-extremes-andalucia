@@ -1,7 +1,7 @@
 # 00_station_map.R — Station network overview map
 #
-# Map of the 127 AEMET stations used in the analysis, coloured by record
-# length (years of data passing QC). Province boundaries shown for context.
+# Map of the 127 AEMET stations used in the analysis, coloured by observed
+# maximum precipitation and sized by record length. Province boundaries shown.
 #
 # Run from project root: Rscript R/00_station_map.R
 
@@ -81,13 +81,13 @@ p <- ggplot() +
             size = 3.0, colour = "grey50", fontface = "italic") +
   # Station points
   geom_point(data = stn_summary,
-             aes(x = lon, y = lat, fill = n_years, size = max_prec),
+             aes(x = lon, y = lat, fill = max_prec, size = n_years),
              shape = 21, colour = "grey30", stroke = 0.3) +
-  scale_fill_viridis_c(option = "D", name = "Record\nlength (yr)",
-                       breaks = c(10, 20, 30, 40, 50, 60)) +
-  scale_size_continuous(name = "Observed\nmax (mm)",
+  scale_fill_viridis_c(option = "B", name = "Observed\nmax (mm)",
+                       breaks = c(50, 100, 150, 200, 250)) +
+  scale_size_continuous(name = "Record\nlength (yr)",
                         range = c(1.5, 5),
-                        breaks = c(50, 100, 150, 200, 250)) +
+                        breaks = c(10, 20, 30, 40, 50, 60)) +
   # Andalucía outline
   geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.5) +
   coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +

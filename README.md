@@ -4,6 +4,12 @@
 
 Bayesian spatial extreme value analysis of daily precipitation across Andalucía, Spain, using the **Max-and-Smooth** two-stage framework with Matérn(5/2) Gaussian process spatial smoothing and penalised complexity (PC) priors.
 
+## Introduction
+
+Extreme daily precipitation is a key input for flood risk assessment, infrastructure design, and water resource planning. Estimating how rare a given rainfall event is — and how that rarity varies across space — requires fitting statistical models to observed data. When individual station records are short or sparse, site-by-site estimates can be noisy and spatially inconsistent.
+
+The goal of this project is to provide spatially continuous estimates of **return levels** (the rainfall amount expected to be exceeded on average once every *T* years) and **exceedance probabilities** (the chance of exceeding a critical threshold within a planning horizon) across Andalucía, to support flood risk assessment and hydrological planning in the region. Using daily precipitation records from 127 AEMET stations, the two-stage **Max-and-Smooth** framework (Hrafnkelsson et al., 2021) fits a GEV distribution at each station independently, then borrows strength across stations through a Matérn Gaussian process prior, producing spatially coherent maps with full uncertainty quantification.
+
 ## Data
 
 - **Source**: AEMET (Agencia Estatal de Meteorología) OpenData API

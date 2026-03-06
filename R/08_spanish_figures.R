@@ -71,13 +71,13 @@ p0 <- ggplot() +
   geom_text(data = prov_labels, aes(x = lon, y = lat, label = name),
             size = 3.0, colour = "grey50", fontface = "italic") +
   geom_point(data = stn_summary,
-             aes(x = lon, y = lat, fill = n_years, size = max_prec),
+             aes(x = lon, y = lat, fill = max_prec, size = n_years),
              shape = 21, colour = "grey30", stroke = 0.3) +
-  scale_fill_viridis_c(option = "D", name = "Longitud del\nregistro (a\u00f1os)",
-                       breaks = c(10, 20, 30, 40, 50, 60)) +
-  scale_size_continuous(name = "M\u00e1ximo\nobservado (mm)",
+  scale_fill_viridis_c(option = "B", name = "M\u00e1ximo\nobservado (mm)",
+                       breaks = c(50, 100, 150, 200, 250)) +
+  scale_size_continuous(name = "Longitud del\nregistro (a\u00f1os)",
                         range = c(1.5, 5),
-                        breaks = c(50, 100, 150, 200, 250)) +
+                        breaks = c(10, 20, 30, 40, 50, 60)) +
   geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.5) +
   coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
   labs(
