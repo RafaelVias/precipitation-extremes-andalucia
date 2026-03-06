@@ -77,7 +77,7 @@ p0 <- ggplot() +
                        breaks = c(50, 100, 150, 200, 250)) +
   scale_size_continuous(name = "Longitud del\nregistro (a\u00f1os)",
                         range = c(1.5, 5),
-                        breaks = c(10, 20, 30, 40, 50, 60)) +
+                        breaks = c(10, 20, 30, 40, 50, 60, 70)) +
   geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.5) +
   coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
   labs(
