@@ -299,8 +299,8 @@ p_mean <- (panels_mean[[1]] + panels_mean[[2]] + panels_mean[[3]]) /
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/exceedance_prob.pdf", p_mean, width = 16, height = 13)
-cat("  Saved figures/exceedance_prob.pdf\n")
+ggsave("figures/exceedance_prob.png", p_mean, width = 16, height = 13, dpi = 200, bg = "white")
+cat("  Saved figures/exceedance_prob.png\n")
 
 cat("========================================\n")
 cat("Done.\n")

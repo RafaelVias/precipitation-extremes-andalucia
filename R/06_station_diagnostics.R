@@ -173,10 +173,10 @@ p_all <- (plots[[1]] + plots[[2]] + plots[[3]]) /
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave("figures/station_return_level_curves.pdf",
-       p_all, width = 16, height = 10)
+ggsave("figures/station_return_level_curves.png",
+       p_all, width = 16, height = 10, dpi = 200, bg = "white")
 
-cat("Saved figures/station_return_level_curves.pdf\n")
+cat("Saved figures/station_return_level_curves.png\n")
 cat("========================================\n")
 cat("Done.\n")
 cat("========================================\n")

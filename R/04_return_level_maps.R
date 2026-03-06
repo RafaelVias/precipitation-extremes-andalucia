@@ -251,10 +251,10 @@ p_all <- make_panel(10) + make_panel(20) + make_panel(50) + make_panel(100) +
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/return_level_maps.pdf",
-       p_all, width = 14, height = 12)
+ggsave("figures/return_level_maps.png",
+       p_all, width = 14, height = 12, dpi = 200, bg = "white")
 
-cat("Saved figures/return_level_maps.pdf\n")
+cat("Saved figures/return_level_maps.png\n")
 cat("========================================\n")
 cat("Done.\n")
 cat("========================================\n")

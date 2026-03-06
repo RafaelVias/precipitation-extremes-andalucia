@@ -25,19 +25,19 @@ Predictions at unobserved locations are obtained via simple kriging from the pos
 
 Posterior mean return levels at *T* = 10, 20, 50, and 100 years, interpolated across Andalucía on a 0.025° grid. White contour lines mark AEMET alarm thresholds (80 and 120 mm).
 
-![Return level maps](figures/return_level_maps.pdf)
+![Return level maps](figures/return_level_maps.png)
 
 ### Exceedance probability
 
 Posterior mean probability that the annual maximum daily rainfall exceeds a given threshold (100, 150, 200 mm) at least once within a planning horizon (20, 50, 100 years).
 
-![Exceedance probability](figures/exceedance_prob.pdf)
+![Exceedance probability](figures/exceedance_prob.png)
 
 ### Station diagnostics
 
 Return level curves at 6 selected stations. Points show observed annual maxima (Gringorten plotting positions). The dashed red line is the site-only MLE fit; the solid blue line is the spatially smoothed posterior mean with 90% credible band.
 
-![Station return level curves](figures/station_return_level_curves.pdf)
+![Station return level curves](figures/station_return_level_curves.png)
 
 ## Pipeline
 
