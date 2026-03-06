@@ -19,15 +19,15 @@ The analysis follows the **Max-and-Smooth** approach of Hrafnkelsson et al. (202
 
 The GEV distribution function is
 
-$$F(z) = \exp\!\Bigl[-\Bigl(1 + \xi\,\frac{z - \mu}{\sigma}\Bigr)^{-1/\xi}\Bigr],$$
+$$F(z) = \exp\left[-\left(1 + \xi \frac{z - \mu}{\sigma}\right)^{-1/\xi}\right]$$
 
 with location $\mu$, scale $\sigma > 0$, and shape $\xi$. The parameters are reparametrised as
 
-$$(\psi,\;\tau,\;\phi) \;=\; \bigl(\log\mu,\;\log(\sigma/\mu),\;h(\xi)\bigr),$$
+$$(\psi, \tau, \phi) = (\log \mu, \log(\sigma / \mu), h(\xi))$$
 
-where $h$ is a smooth bijection mapping $\xi \in (-0.5,\, 0.5)$ to the real line:
+where $h$ is a smooth bijection mapping $\xi \in (-0.5, 0.5)$ to the real line:
 
-$$h(\xi) = a + b\,\log\!\bigl(-\log(1 - u^c)\bigr), \qquad u = \frac{\xi - \xi_{\min}}{\xi_{\max} - \xi_{\min}},$$
+$$h(\xi) = a + b \log(-\log(1 - u^c)), \quad u = \frac{\xi - \xi_{\min}}{\xi_{\max} - \xi_{\min}}$$
 
 with constants $c = 0.8$, $a$ and $b$ chosen so that $h(0) \approx 0$. This ensures all three working parameters are unbounded, which is essential for the Gaussian surrogate likelihood and the GP prior in Stage 2.
 
@@ -35,49 +35,49 @@ with constants $c = 0.8$, $a$ and $b$ chosen so that $h(0) \approx 0$. This ensu
 
 At each station, a Poisson point process (PPP) likelihood is maximised over daily observations exceeding a site-specific threshold (the 75th percentile of positive precipitation). Multi-start optimisation over five initial shape values avoids local optima, with interior solutions ($\xi$ away from the bounds) preferred over boundary solutions to ensure reliable Hessians.
 
-A parametric bootstrap (1000 replicates per station) provides per-station 3 × 3 covariance matrices $\hat\Sigma_i$ for the surrogate Gaussian likelihood used in Stage 2. Exceedances are simulated from the fitted PPP model and re-estimated, yielding empirical covariances of the MLE across replicates.
+A parametric bootstrap (1000 replicates per station) provides per-station 3 × 3 covariance matrices $\hat{\Sigma}_i$ for the surrogate Gaussian likelihood used in Stage 2. Exceedances are simulated from the fitted PPP model and re-estimated, yielding empirical covariances of the MLE across replicates.
 
 ### Stage 2 — Spatial smoothing
 
-The Stage 1 estimates $\hat\eta_i = (\hat\psi_i, \hat\tau_i, \hat\phi_i)$ are treated as noisy observations of a latent spatial field. For each of the three parameters $k \in \{\psi, \tau, \phi\}$, a Gaussian process prior is placed on the latent values:
+The Stage 1 estimates $\hat{\eta}_i = (\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)$ are treated as noisy observations of a latent spatial field. For each of the three GEV parameters, an independent Gaussian process prior is placed on the latent values:
 
-$$\eta_k \sim \mathcal{GP}\!\bigl(\mu_k,\; C_k(\cdot, \cdot)\bigr),$$
+$$\eta_k \sim \text{GP}(\mu_k, C_k)$$
 
-with a Matérn covariance of smoothness $\nu = 5/2$:
+with a Matérn covariance of smoothness 5/2:
 
-$$C_k(d) = \sigma_k^2 \Bigl(1 + \frac{\sqrt{5}\,d}{\rho_k} + \frac{5\,d^2}{3\,\rho_k^2}\Bigr) \exp\!\Bigl(-\frac{\sqrt{5}\,d}{\rho_k}\Bigr),$$
+$$C_k(d) = \sigma_k^2 \left(1 + \frac{\sqrt{5} \, d}{\rho_k} + \frac{5 d^2}{3 \rho_k^2}\right) \exp\left(-\frac{\sqrt{5} \, d}{\rho_k}\right)$$
 
 where $d$ is inter-station distance (in degrees), $\sigma_k$ is the marginal standard deviation, and $\rho_k$ is the practical range. A nugget term $\nu_k^2$ is added to the diagonal to absorb station-specific noise not captured by the spatial GP.
 
-**Surrogate likelihood.** The Stage 1 bootstrap covariances form a block-diagonal precision matrix $Q$ with 3 × 3 blocks $\hat\Sigma_i^{-1}$. The surrogate likelihood is
+**Surrogate likelihood.** The Stage 1 bootstrap covariances form a block-diagonal precision matrix $Q$ with 3 × 3 blocks $\hat{\Sigma}_i^{-1}$. The surrogate likelihood is
 
-$$\hat\eta \mid \eta \;\sim\; \mathcal{N}(\eta,\; Q^{-1}),$$
+$$\hat{\eta} \mid \eta \sim \mathcal{N}(\eta, Q^{-1})$$
 
 which decouples the computationally expensive per-station PPP fits from the spatial smoothing.
 
-**Non-centered parameterisation.** To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k \, \eta_k^{\mathrm{raw}}$, where $L_k$ is the Cholesky factor of the covariance matrix and $\eta_k^{\mathrm{raw}} \sim \mathcal{N}(0, I)$.
+**Non-centered parameterisation.** To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k \eta_k^{\text{raw}}$, where $L_k$ is the Cholesky factor of the covariance matrix and $\eta_k^{\text{raw}} \sim \mathcal{N}(0, I)$.
 
 **Penalised complexity priors.** Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors calibrated as:
 
 | Parameter | Prior | Calibration |
 |-----------|-------|-------------|
-| $\sigma_k$ (marginal SD) | $\mathrm{Exp}(\lambda_\sigma)$ | $P(\sigma > 1) = 0.05 \Rightarrow \lambda_\sigma = 3.0$ |
-| $\rho_k$ (range) | $\pi(\rho) = \lambda_\rho \, \rho^{-2} \exp(-\lambda_\rho / \rho)$ | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ |
-| $\nu_k$ (nugget SD) | $\mathrm{Exp}(\lambda_\nu)$ | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ |
+| $\sigma_k$ (marginal SD) | Exponential | $P(\sigma > 1) = 0.05 \Rightarrow \lambda_\sigma = 3.0$ |
+| $\rho_k$ (range) | PC prior on range | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ |
+| $\nu_k$ (nugget SD) | Exponential | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ |
 
 The intercepts receive vague priors: $\mu_k \sim \mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 2000 iterations (1000 warmup), `adapt_delta = 0.9`.
 
 ### Prediction
 
-Return levels and exceedance probabilities at unobserved locations are obtained from the **conditional distribution of the Matérn GP**. For each parameter $k$, the GP hyperparameters $(\hat\sigma_k, \hat\rho_k, \hat\nu_k)$ are fixed at their posterior means to compute the conditional moments at a prediction location $s^*$:
+Return levels and exceedance probabilities at unobserved locations are obtained from the **conditional distribution of the Matérn GP**. The GP hyperparameters $(\hat{\sigma}_k, \hat{\rho}_k, \hat{\nu}_k)$ are fixed at their posterior means to compute the conditional moments at a prediction location $s^*$:
 
-$$\eta_k(s^*) \mid \eta_k \;\sim\; \mathcal{N}\!\bigl(\mu_{\mathrm{cond}},\; \sigma^2_{\mathrm{cond}}\bigr),$$
+$$\eta_k(s^*) \mid \eta_k \sim \mathcal{N}(\mu_{\text{cond}}, \sigma^2_{\text{cond}})$$
 
 where
 
-$$\mu_{\mathrm{cond}} = \mu_k + \gamma_k^\top \, \Sigma_k^{-1} \, (\eta_k - \mu_k), \qquad \sigma^2_{\mathrm{cond}} = \sigma_k^2 - \gamma_k^\top \, \Sigma_k^{-1} \, \gamma_k,$$
+$$\mu_{\text{cond}} = \mu_k + \gamma_k^\top \Sigma_k^{-1} (\eta_k - \mu_k), \qquad \sigma^2_{\text{cond}} = \sigma_k^2 - \gamma_k^\top \Sigma_k^{-1} \gamma_k$$
 
-with $\gamma_k$ the cross-covariance vector between $s^*$ and the stations, and $\Sigma_k$ the station-station covariance matrix (including nugget). For each posterior draw of the latent field $\eta_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\mathrm{cond}}$ is fully propagated into the posterior predictive return levels. Predictions are computed on a 0.025° grid across Andalucía.
+with $\gamma_k$ the cross-covariance vector between $s^*$ and the stations, and $\Sigma_k$ the station-station covariance matrix (including nugget). For each posterior draw of the latent field $\eta_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\text{cond}}$ is fully propagated into the posterior predictive return levels. Predictions are computed on a 0.025° grid across Andalucía.
 
 ## Results
 
