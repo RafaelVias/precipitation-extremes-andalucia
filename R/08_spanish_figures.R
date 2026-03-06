@@ -314,7 +314,8 @@ exc_df <- do.call(rbind, grid_rows)
 base_theme_es <- theme_minimal(base_size = 10) +
   theme(panel.grid.minor = element_blank(),
         plot.title = element_text(face = "bold", size = 10),
-        legend.key.height = unit(0.7, "cm"))
+        legend.key.height = unit(0.7, "cm"),
+        plot.margin = margin(2, 2, 2, 2))
 
 make_exc_panel <- function(thr_val, hor_val) {
   g_sub <- exc_df[exc_df$threshold == thr_val & exc_df$horizon == hor_val, ]
@@ -369,10 +370,11 @@ p_exc <- (panels_es[[1]] + panels_es[[2]] + panels_es[[3]]) /
     subtitle = sprintf("Mat\u00e9rn(5/2) GP + priors PC | %d estaciones, %d puntos de malla, %d muestras a posteriori",
                        ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 14),
-                  plot.subtitle = element_text(size = 11, colour = "grey40"))
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/exceedance_prob.png", p_exc, width = 16, height = 13, dpi = 200, bg = "white")
+ggsave("figures/es/exceedance_prob.png", p_exc, width = 16, height = 10, dpi = 200, bg = "white")
 cat("  Guardado figures/es/exceedance_prob.png\n")
 
 # =============================================================================
