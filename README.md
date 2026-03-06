@@ -49,15 +49,21 @@ $$C_k(d) = \sigma_k^2 \left(1 + \frac{\sqrt{5} d}{\rho_k} + \frac{5 d^2}{3 \rho_
 
 where $d$ is inter-station distance (in degrees), $\sigma_k$ is the marginal standard deviation, and $\rho_k$ is the practical range. A nugget term $\nu_k^2$ is added to the diagonal to absorb station-specific noise not captured by the spatial GP.
 
-**Surrogate likelihood.** The Stage 1 bootstrap covariances form a block-diagonal precision matrix $Q$ with 3 × 3 blocks $\hat{\Sigma}_i^{-1}$. The surrogate likelihood is
+#### Surrogate likelihood
+
+The Stage 1 bootstrap covariances form a block-diagonal precision matrix $Q$ with 3 × 3 blocks $\hat{\Sigma}_i^{-1}$. The surrogate likelihood is
 
 $$\hat{\eta} \mid \eta \sim \mathcal{N}(\eta, Q^{-1})$$
 
 which decouples the computationally expensive per-station PPP fits from the spatial smoothing.
 
-**Non-centered parameterisation.** To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$.
+#### Non-centered parameterisation
 
-**Penalised complexity priors.** Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors calibrated as:
+To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$.
+
+#### Penalised complexity priors
+
+Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors calibrated as:
 
 | Parameter | Prior | Calibration |
 |-----------|-------|-------------|
