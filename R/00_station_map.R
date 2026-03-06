@@ -21,6 +21,9 @@ cat("Loading data...\n")
 
 am <- readRDS("data/annual_maxima_andalucia.rds")
 
+# Exclude non-mainland stations (Alborán island, removed in 02_stage1_mle.R)
+am <- am %>% filter(indicativo != "6381")
+
 # Per-station summaries
 stn_summary <- am %>%
   group_by(indicativo) %>%

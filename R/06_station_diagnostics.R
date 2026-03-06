@@ -69,7 +69,7 @@ rl_from_params <- function(psi, tau, phi, T) {
 # ---- 4. Compute curves ----
 cat("Computing return level curves...\n")
 
-return_periods <- exp(seq(log(2), log(200), length.out = 100))
+return_periods <- exp(seq(log(1.001), log(200), length.out = 150))
 
 plots <- list()
 
