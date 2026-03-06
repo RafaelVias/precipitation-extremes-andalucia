@@ -61,3 +61,7 @@ Rscript R/06_station_diagnostics.R  # Station return level curves (Figure 3)
 - Fuglstad, G.-A., Simpson, D., Lindgren, F. & Rue, H. (2019). Constructing priors that penalize the complexity of Gaussian random fields. *Journal of the American Statistical Association*, 114(525), 445–452. [doi:10.1080/01621459.2017.1415907](https://doi.org/10.1080/01621459.2017.1415907)
 
 - Carpenter, B. et al. (2017). Stan: A probabilistic programming language. *Journal of Statistical Software*, 76(1). [doi:10.18637/jss.v076.i01](https://doi.org/10.18637/jss.v076.i01)
+
+## Acknowledgements
+
+The Stage 1 fitting code (`vendor/max_and_smooth/`) is adapted from the companion repository to Hazra, Huser & Jóhannesson (2023): [arnabstatswithR/max_and_smooth](https://github.com/arnabstatswithR/max_and_smooth), originally developed by Arnab Hazra, Raphaël Huser, and Birgir Hrafnkelsson.
