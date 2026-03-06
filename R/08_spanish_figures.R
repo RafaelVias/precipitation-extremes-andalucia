@@ -266,10 +266,11 @@ p_rl <- make_rl_panel(10) + make_rl_panel(20) + make_rl_panel(50) + make_rl_pane
     title = "Niveles de retorno de precipitaci\u00f3n m\u00e1xima diaria en Andaluc\u00eda",
     subtitle = sprintf("Media a posteriori | Mat\u00e9rn(5/2) GP + priors PC | %d estaciones", ns),
     theme = theme(plot.title = element_text(face = "bold", size = 15),
-                  plot.subtitle = element_text(size = 11, colour = "grey40"))
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 12, dpi = 200, bg = "white")
+ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 11, dpi = 200, bg = "white")
 cat("  Guardado figures/es/return_level_maps.png\n")
 
 # =============================================================================

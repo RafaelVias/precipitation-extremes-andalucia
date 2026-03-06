@@ -246,11 +246,12 @@ p_all <- make_panel(10) + make_panel(20) + make_panel(50) + make_panel(100) +
       "Posterior mean | Mat\u00e9rn(5/2) GP + PC priors | %d stations",
       ns),
     theme = theme(plot.title = element_text(face = "bold", size = 15),
-                  plot.subtitle = element_text(size = 11, colour = "grey40"))
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
   )
 
 ggsave("figures/return_level_maps.png",
-       p_all, width = 14, height = 12, dpi = 200, bg = "white")
+       p_all, width = 14, height = 11, dpi = 200, bg = "white")
 
 cat("Saved figures/return_level_maps.png\n")
 cat("========================================\n")
