@@ -144,6 +144,19 @@ for (g in seq_along(groups)) {
   cat("  Saved", fname, "\n")
 }
 
+# ---- 5. Autocorrelation plots ----
+cat("Generating autocorrelation plots...\n")
+
+p_acf <- mcmc_acf(draws_array, pars = hyper_vars, lags = 40) +
+  labs(title = "Autocorrelation: GP hyperparameters",
+       subtitle = "4 chains, 40 lags") +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(size = 11, colour = "grey40"))
+
+ggsave("diagnostics/autocorrelation.png", p_acf,
+       width = 14, height = 10, dpi = 200, bg = "white")
+cat("  Saved diagnostics/autocorrelation.png\n")
+
 cat("\n========================================\n")
 cat("Done. All diagnostics saved to diagnostics/\n")
 cat("========================================\n")
