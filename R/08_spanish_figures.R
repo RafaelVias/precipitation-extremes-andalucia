@@ -271,7 +271,7 @@ p_rl <- make_rl_panel(10) + make_rl_panel(20) + make_rl_panel(50) + make_rl_pane
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 10, dpi = 200, bg = "white")
+ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 8.5, dpi = 200, bg = "white")
 cat("  Guardado figures/es/return_level_maps.png\n")
 
 # =============================================================================
