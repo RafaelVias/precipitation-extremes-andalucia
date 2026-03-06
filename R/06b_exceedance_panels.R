@@ -229,16 +229,50 @@ base_theme <- theme_minimal(base_size = 10) +
         legend.key.height = unit(0.7, "cm"))
 
 make_panel <- function(data, fill_var, fill_label, title, option = "D",
-                       limits = c(0, 1), oob = scales::squish) {
-  ggplot() +
+                       limits = c(0, 1), oob = scales::squish,
+                       contour_breaks = NULL) {
+  p <- ggplot() +
     geom_sf(data = port_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_sf(data = mor_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_tile(data = data, aes(x = lon, y = lat, fill = .data[[fill_var]]),
               width = tile_res, height = tile_res) +
     scale_fill_viridis_c(option = option, name = fill_label,
-                         limits = limits, oob = oob) +
-    geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
+                         limits = limits, oob = oob)
+
+  if (!is.null(contour_breaks)) {
+    data_range <- range(data[[fill_var]], na.rm = TRUE)
+    valid_breaks <- contour_breaks[contour_breaks > data_range[1] &
+                                   contour_breaks < data_range[2]]
+    if (length(valid_breaks) > 0) {
+      # Draw contour lines
+      p <- p +
+        geom_contour(data = data, aes(x = lon, y = lat, z = .data[[fill_var]]),
+                     breaks = valid_breaks,
+                     colour = "white", linewidth = 0.3, alpha = 0.85)
+
+      # One label per level: find a point well inside Andalucía
+      # Prefer points near the interior (away from edges)
+      mid_lon <- mean(range(data$lon))
+      mid_lat <- mean(range(data$lat))
+      label_df <- do.call(rbind, lapply(valid_breaks, function(lev) {
+        diffs <- abs(data[[fill_var]] - lev)
+        candidates <- which(diffs < quantile(diffs, 0.01))
+        if (length(candidates) == 0) candidates <- which.min(diffs)
+        # Score candidates by distance from map center (prefer interior)
+        dist_center <- (data$lon[candidates] - mid_lon)^2 +
+                       (data$lat[candidates] - mid_lat)^2
+        best <- candidates[which.min(dist_center)]
+        data.frame(lon = data$lon[best], lat = data$lat[best], label = lev)
+      }))
+
+      p <- p +
+        geom_text(data = label_df, aes(x = lon, y = lat, label = label),
+                  size = 1.8, colour = "white", fontface = "bold")
+    }
+  }
+
+  p + geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
     labs(title = title) +
     coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
     base_theme
@@ -252,7 +286,8 @@ for (t in seq_len(n_thr)) {
                      grid_df$horizon == horizons[h], ]
     title <- paste0("P(max > ", thresholds[t], " mm in ", horizons[h], " yr)")
     panels_mean[[length(panels_mean) + 1]] <- make_panel(
-      g_sub, "prob_mean", "prob", title, option = "D")
+      g_sub, "prob_mean", "prob", title, option = "B",
+      contour_breaks = c(0.25, 0.5, 0.75))
   }
 }
 
@@ -268,9 +303,8 @@ p_mean <- (panels_mean[[1]] + panels_mean[[2]] + panels_mean[[3]]) /
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/exceedance_prob_mean.pdf", p_mean, width = 16, height = 13, bg = "white")
-ggsave("figures/exceedance_prob_mean.png", p_mean, width = 16, height = 13, dpi = 200, bg = "white")
-cat("  Saved figures/exceedance_prob_mean.pdf and .png\n")
+ggsave("figures/jesus-figures/exceedance_prob_mean.png", p_mean, width = 16, height = 13, dpi = 200, bg = "white")
+cat("  Saved figures/jesus-figures/exceedance_prob_mean.png\n")
 
 # ---- 7. Plot 3: Posterior SD of exceedance probability ----
 cat("Generating Plot 3 (exceedance probability SD)...\n")
@@ -284,7 +318,7 @@ for (t in seq_len(n_thr)) {
                      grid_df$horizon == horizons[h], ]
     title <- paste0("SD: P(max > ", thresholds[t], " mm in ", horizons[h], " yr)")
     panels_sd[[length(panels_sd) + 1]] <- make_panel(
-      g_sub, "prob_sd", "SD", title, option = "A",
+      g_sub, "prob_sd", "SD", title, option = "B",
       limits = c(0, sd_max))
   }
 }
@@ -301,9 +335,8 @@ p_sd <- (panels_sd[[1]] + panels_sd[[2]] + panels_sd[[3]]) /
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/exceedance_prob_sd.pdf", p_sd, width = 16, height = 13, bg = "white")
-ggsave("figures/exceedance_prob_sd.png", p_sd, width = 16, height = 13, dpi = 200, bg = "white")
-cat("  Saved figures/exceedance_prob_sd.pdf and .png\n")
+ggsave("figures/jesus-figures/exceedance_prob_sd.png", p_sd, width = 16, height = 13, dpi = 200, bg = "white")
+cat("  Saved figures/jesus-figures/exceedance_prob_sd.png\n")
 
 cat("========================================\n")
 cat("Done.\n")

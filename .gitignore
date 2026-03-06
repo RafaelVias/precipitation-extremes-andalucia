@@ -1,3 +1,6 @@
+# Compiled Stan models (regenerated at runtime)
+Stan/*/
+
 # LaTeX build artifacts
 *.aux
 *.log
@@ -32,3 +35,9 @@ Thumbs.db
 *~
 *.tmp
 *.bak
+
+# Archive of superseded work (kept locally, not in repo)
+archive/
+
+# Logs
+logs/
