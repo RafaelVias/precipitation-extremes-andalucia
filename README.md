@@ -19,7 +19,7 @@ The analysis follows the **Max-and-Smooth** approach of Hrafnkelsson et al. (202
 
 The GEV distribution function is
 
-$$F(z) = \exp\left[-\left(1 + \xi \frac{z - \mu}{\sigma}\right)^{-1/\xi}\right]$$
+$$F(z) = \exp\left[-\left(1 + \xi \left(\frac{z - \mu}{\sigma}\right)\right)^{-1/\xi}\right]$$
 
 with location $\mu$, scale $\sigma > 0$, and shape $\xi$. The parameters are reparametrised as
 
@@ -45,7 +45,7 @@ $$\eta_k \sim \text{GP}(\mu_k, C_k)$$
 
 with a Matérn covariance of smoothness 5/2:
 
-$$C_k(d) = \sigma_k^2 \left(1 + \frac{\sqrt{5} \, d}{\rho_k} + \frac{5 d^2}{3 \rho_k^2}\right) \exp\left(-\frac{\sqrt{5} \, d}{\rho_k}\right)$$
+$$C_k(d) = \sigma_k^2 \left(1 + \frac{\sqrt{5} d}{\rho_k} + \frac{5 d^2}{3 \rho_k^2}\right) \exp\left(-\frac{\sqrt{5} d}{\rho_k}\right)$$
 
 where $d$ is inter-station distance (in degrees), $\sigma_k$ is the marginal standard deviation, and $\rho_k$ is the practical range. A nugget term $\nu_k^2$ is added to the diagonal to absorb station-specific noise not captured by the spatial GP.
 
@@ -55,7 +55,7 @@ $$\hat{\eta} \mid \eta \sim \mathcal{N}(\eta, Q^{-1})$$
 
 which decouples the computationally expensive per-station PPP fits from the spatial smoothing.
 
-**Non-centered parameterisation.** To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k \eta_k^{\text{raw}}$, where $L_k$ is the Cholesky factor of the covariance matrix and $\eta_k^{\text{raw}} \sim \mathcal{N}(0, I)$.
+**Non-centered parameterisation.** To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$.
 
 **Penalised complexity priors.** Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors calibrated as:
 
