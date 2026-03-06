@@ -235,7 +235,8 @@ make_panel <- function(rp_val) {
     theme_minimal(base_size = 12) +
     theme(panel.grid.minor = element_blank(),
           plot.title = element_text(face = "bold", size = 13),
-          legend.key.height = unit(1.0, "cm"))
+          legend.key.height = unit(1.0, "cm"),
+          plot.margin = margin(2, 2, 2, 2))
 }
 
 p_all <- make_panel(10) + make_panel(20) + make_panel(50) + make_panel(100) +
@@ -251,7 +252,7 @@ p_all <- make_panel(10) + make_panel(20) + make_panel(50) + make_panel(100) +
   )
 
 ggsave("figures/return_level_maps.png",
-       p_all, width = 14, height = 11, dpi = 200, bg = "white")
+       p_all, width = 14, height = 10, dpi = 200, bg = "white")
 
 cat("Saved figures/return_level_maps.png\n")
 cat("========================================\n")
