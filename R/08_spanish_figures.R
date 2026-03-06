@@ -190,6 +190,7 @@ cat("\n--- Mapas de niveles de retorno ---\n")
 return_periods_map <- c(10, 20, 50, 100)
 n_rp <- length(return_periods_map)
 rl_mean <- matrix(0, n_pred, n_rp)
+rl_sd   <- matrix(0, n_pred, n_rp)
 
 chunk_size <- 2000
 n_chunks <- ceiling(n_pred / chunk_size)
@@ -204,13 +205,15 @@ for (ch in seq_len(n_chunks)) {
     Tr <- return_periods_map[r]
     rl_ch <- mu_gev + sigma_gev / xi_gev * ((-log(1 - 1 / Tr))^(-xi_gev) - 1)
     rl_mean[idx, r] <- colMeans(rl_ch)
+    rl_sd[idx, r]   <- apply(rl_ch, 2, sd)
   }
 }
 
 grid_list <- list()
 for (r in seq_len(n_rp)) {
   grid_list[[r]] <- data.frame(lon = pred_pts$lon, lat = pred_pts$lat,
-                                rl_mean = rl_mean[, r], rp = return_periods_map[r])
+                                rl_mean = rl_mean[, r], rl_sd = rl_sd[, r],
+                                rp = return_periods_map[r])
 }
 grid_df <- do.call(rbind, grid_list)
 
@@ -274,6 +277,43 @@ p_rl <- make_rl_panel(10) + make_rl_panel(20) + make_rl_panel(50) + make_rl_pane
 ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 8.5, dpi = 200, bg = "white")
 cat("  Guardado figures/es/return_level_maps.png\n")
 
+# SD panel
+sd_min <- min(grid_df$rl_sd); sd_max <- max(grid_df$rl_sd)
+sd_breaks <- seq(0, ceiling(sd_max / 10) * 10, by = 10)
+
+make_rl_sd_panel <- function(rp_val) {
+  g_sub <- grid_df[grid_df$rp == rp_val, ]
+  ggplot() +
+    geom_sf(data = port_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_sf(data = mor_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_tile(data = g_sub, aes(x = lon, y = lat, fill = rl_sd),
+              width = pred_res, height = pred_res) +
+    scale_fill_viridis_c(option = "A", name = "DE (mm)",
+                         limits = c(sd_min, sd_max), breaks = sd_breaks) +
+    geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
+    labs(title = paste0("DE del nivel de retorno a ", rp_val, " a\u00f1os")) +
+    coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid.minor = element_blank(),
+          plot.title = element_text(face = "bold", size = 13),
+          legend.key.height = unit(1.0, "cm"),
+          plot.margin = margin(2, 2, 2, 2))
+}
+
+p_rl_sd <- make_rl_sd_panel(10) + make_rl_sd_panel(20) + make_rl_sd_panel(50) + make_rl_sd_panel(100) +
+  plot_layout(nrow = 2, ncol = 2) +
+  plot_annotation(
+    title = "Niveles de retorno: desviaci\u00f3n est\u00e1ndar a posteriori",
+    subtitle = sprintf("Mat\u00e9rn(5/2) GP + priors PC | %d estaciones", ns),
+    theme = theme(plot.title = element_text(face = "bold", size = 15),
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
+  )
+
+ggsave("figures/es/return_level_maps_sd.png", p_rl_sd, width = 14, height = 8.5, dpi = 200, bg = "white")
+cat("  Guardado figures/es/return_level_maps_sd.png\n")
+
 # =============================================================================
 # Figure 2: Exceedance probability
 # =============================================================================
@@ -283,6 +323,7 @@ thresholds_exc <- c(100, 150, 200)
 horizons <- c(20, 50, 100)
 n_thr <- length(thresholds_exc); n_hor <- length(horizons)
 exc_mean <- array(0, dim = c(n_pred, n_thr, n_hor))
+exc_sd   <- array(0, dim = c(n_pred, n_thr, n_hor))
 
 set.seed(42)
 for (ch in seq_len(n_chunks)) {
@@ -294,7 +335,9 @@ for (ch in seq_len(n_chunks)) {
     z <- pmax(1 + xi_gev * (x - mu_gev) / sigma_gev, 1e-10)
     p_annual <- 1 - exp(-z^(-1 / xi_gev))
     for (h in seq_len(n_hor)) {
-      exc_mean[idx, t, h] <- colMeans(1 - (1 - p_annual)^horizons[h])
+      p_horizon <- 1 - (1 - p_annual)^horizons[h]
+      exc_mean[idx, t, h] <- colMeans(p_horizon)
+      exc_sd[idx, t, h]   <- apply(p_horizon, 2, sd)
     }
   }
 }
@@ -305,6 +348,7 @@ for (t in seq_len(n_thr)) {
     grid_rows[[length(grid_rows) + 1]] <- data.frame(
       lon = pred_pts$lon, lat = pred_pts$lat,
       prob_mean = exc_mean[, t, h],
+      prob_sd   = exc_sd[, t, h],
       threshold = thresholds_exc[t], horizon = horizons[h]
     )
   }
@@ -376,6 +420,49 @@ p_exc <- (panels_es[[1]] + panels_es[[2]] + panels_es[[3]]) /
 
 ggsave("figures/es/exceedance_prob.png", p_exc, width = 16, height = 10, dpi = 200, bg = "white")
 cat("  Guardado figures/es/exceedance_prob.png\n")
+
+# SD panel
+exc_sd_max <- max(exc_df$prob_sd)
+
+make_exc_sd_panel <- function(thr_val, hor_val) {
+  g_sub <- exc_df[exc_df$threshold == thr_val & exc_df$horizon == hor_val, ]
+  title <- paste0("DE: P(m\u00e1x > ", thr_val, " mm en ", hor_val, " a\u00f1os)")
+
+  ggplot() +
+    geom_sf(data = port_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_sf(data = mor_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_tile(data = g_sub, aes(x = lon, y = lat, fill = prob_sd),
+              width = pred_res, height = pred_res) +
+    scale_fill_viridis_c(option = "A", name = "DE",
+                         limits = c(0, exc_sd_max)) +
+    geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
+    labs(title = title) +
+    coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
+    base_theme_es
+}
+
+panels_sd_es <- list()
+for (t in seq_len(n_thr)) {
+  for (h in seq_len(n_hor)) {
+    panels_sd_es[[length(panels_sd_es) + 1]] <- make_exc_sd_panel(thresholds_exc[t], horizons[h])
+  }
+}
+
+p_exc_sd <- (panels_sd_es[[1]] + panels_sd_es[[2]] + panels_sd_es[[3]]) /
+            (panels_sd_es[[4]] + panels_sd_es[[5]] + panels_sd_es[[6]]) /
+            (panels_sd_es[[7]] + panels_sd_es[[8]] + panels_sd_es[[9]]) +
+  plot_annotation(
+    title = "Probabilidad de excedencia: desviaci\u00f3n est\u00e1ndar a posteriori",
+    subtitle = sprintf("Mat\u00e9rn(5/2) GP + priors PC | %d estaciones, %d puntos de malla, %d muestras a posteriori",
+                       ns, n_pred, n_draws),
+    theme = theme(plot.title = element_text(face = "bold", size = 14),
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
+  )
+
+ggsave("figures/es/exceedance_prob_sd.png", p_exc_sd, width = 16, height = 10, dpi = 200, bg = "white")
+cat("  Guardado figures/es/exceedance_prob_sd.png\n")
 
 # =============================================================================
 # Figure 3: Station diagnostics

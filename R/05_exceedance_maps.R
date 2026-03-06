@@ -304,6 +304,39 @@ p_mean <- (panels_mean[[1]] + panels_mean[[2]] + panels_mean[[3]]) /
 ggsave("figures/exceedance_prob.png", p_mean, width = 16, height = 10, dpi = 200, bg = "white")
 cat("  Saved figures/exceedance_prob.png\n")
 
+# ---- 7. Plot 3: Posterior SD exceedance probability ----
+cat("Generating Plot 3 (exceedance probability SD)...\n")
+
+sd_max <- max(grid_df$prob_sd)
+
+panels_sd <- list()
+for (t in seq_len(n_thr)) {
+  for (h in seq_len(n_hor)) {
+    g_sub <- grid_df[grid_df$threshold == thresholds[t] &
+                     grid_df$horizon == horizons[h], ]
+    title <- paste0("SD: P(max > ", thresholds[t], " mm in ", horizons[h], " yr)")
+    panels_sd[[length(panels_sd) + 1]] <- make_panel(
+      g_sub, "prob_sd", "SD", title, option = "A",
+      limits = c(0, sd_max), contour_breaks = NULL)
+  }
+}
+
+p_sd <- (panels_sd[[1]] + panels_sd[[2]] + panels_sd[[3]]) /
+        (panels_sd[[4]] + panels_sd[[5]] + panels_sd[[6]]) /
+        (panels_sd[[7]] + panels_sd[[8]] + panels_sd[[9]]) +
+  plot_annotation(
+    title = "Exceedance probability: posterior standard deviation",
+    subtitle = sprintf(
+      "Mat\u00e9rn(5/2) GP + PC priors | %d stations, %d grid points, %d posterior draws",
+      ns, n_pred, n_draws),
+    theme = theme(plot.title = element_text(face = "bold", size = 14),
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
+  )
+
+ggsave("figures/exceedance_prob_sd.png", p_sd, width = 16, height = 10, dpi = 200, bg = "white")
+cat("  Saved figures/exceedance_prob_sd.png\n")
+
 cat("========================================\n")
 cat("Done.\n")
 cat("========================================\n")

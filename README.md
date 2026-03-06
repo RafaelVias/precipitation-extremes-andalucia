@@ -101,11 +101,25 @@ Posterior mean return levels at *T* = 10, 20, 50, and 100 years, interpolated ac
 
 ![Return level maps](figures/return_level_maps.png)
 
+<details>
+<summary>Posterior standard deviation</summary>
+
+![Return level SD](figures/return_level_maps_sd.png)
+
+</details>
+
 ### Exceedance probability
 
 Posterior mean probability that the annual maximum daily rainfall exceeds a given threshold (100, 150, 200 mm) at least once within a planning horizon (20, 50, 100 years).
 
 ![Exceedance probability](figures/exceedance_prob.png)
+
+<details>
+<summary>Posterior standard deviation</summary>
+
+![Exceedance probability SD](figures/exceedance_prob_sd.png)
+
+</details>
 
 ### Station diagnostics
 

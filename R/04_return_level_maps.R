@@ -92,6 +92,7 @@ return_periods <- c(10, 20, 50, 100)
 n_rp <- length(return_periods)
 
 rl_mean <- matrix(0, n_pred, n_rp)
+rl_sd   <- matrix(0, n_pred, n_rp)
 
 resid_psi <- sweep(eta_psi_draws, 1, mu_psi_draws, "-")
 resid_tau <- sweep(eta_tau_draws, 1, mu_tau_draws, "-")
@@ -130,6 +131,7 @@ for (ch in seq_len(n_chunks)) {
     Tr <- return_periods[r]
     rl_ch <- mu_gev + sigma_gev / xi_gev * ((-log(1 - 1 / Tr))^(-xi_gev) - 1)
     rl_mean[idx, r] <- colMeans(rl_ch)
+    rl_sd[idx, r]   <- apply(rl_ch, 2, sd)
   }
 }
 
@@ -139,6 +141,7 @@ for (r in seq_len(n_rp)) {
   grid_list[[r]] <- data.frame(
     lon = pred_pts$lon, lat = pred_pts$lat,
     rl_mean = rl_mean[, r],
+    rl_sd   = rl_sd[, r],
     rp = return_periods[r]
   )
 }
@@ -255,6 +258,52 @@ ggsave("figures/return_level_maps.png",
        p_all, width = 14, height = 8.5, dpi = 200, bg = "white")
 
 cat("Saved figures/return_level_maps.png\n")
+
+# ---- 7. SD panel ----
+cat("Generating SD panel...\n")
+
+sd_min <- min(grid_df$rl_sd)
+sd_max <- max(grid_df$rl_sd)
+sd_breaks <- seq(0, ceiling(sd_max / 10) * 10, by = 10)
+
+make_sd_panel <- function(rp_val) {
+  g_sub <- grid_df[grid_df$rp == rp_val, ]
+
+  ggplot() +
+    geom_sf(data = port_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_sf(data = mor_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
+    geom_tile(data = g_sub, aes(x = lon, y = lat, fill = rl_sd),
+              width = pred_res, height = pred_res) +
+    scale_fill_viridis_c(option = "A", name = "SD (mm)",
+                         limits = c(sd_min, sd_max),
+                         breaks = sd_breaks) +
+    geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
+    labs(title = paste0(rp_val, "-year return level SD")) +
+    coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
+    theme_minimal(base_size = 12) +
+    theme(panel.grid.minor = element_blank(),
+          plot.title = element_text(face = "bold", size = 13),
+          legend.key.height = unit(1.0, "cm"),
+          plot.margin = margin(2, 2, 2, 2))
+}
+
+p_sd <- make_sd_panel(10) + make_sd_panel(20) + make_sd_panel(50) + make_sd_panel(100) +
+  plot_layout(nrow = 2, ncol = 2) +
+  plot_annotation(
+    title = "Maximum daily rainfall return levels: posterior standard deviation",
+    subtitle = sprintf(
+      "Mat\u00e9rn(5/2) GP + PC priors | %d stations",
+      ns),
+    theme = theme(plot.title = element_text(face = "bold", size = 15),
+                  plot.subtitle = element_text(size = 11, colour = "grey40"),
+                  plot.margin = margin(2, 2, 2, 2))
+  )
+
+ggsave("figures/return_level_maps_sd.png",
+       p_sd, width = 14, height = 8.5, dpi = 200, bg = "white")
+
+cat("Saved figures/return_level_maps_sd.png\n")
 cat("========================================\n")
 cat("Done.\n")
 cat("========================================\n")
