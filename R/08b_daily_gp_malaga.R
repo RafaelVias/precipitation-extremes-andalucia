@@ -297,10 +297,10 @@ p3 <- ggplot(rl_comp, aes(x = rp)) +
   theme(plot.title = element_text(face = "bold"), legend.position = "bottom")
 
 p_all <- p1 / p2 / p3
-ggsave("figures/jesus-figures/daily_gp_malaga.png",
+ggsave("figures/presentation/daily_gp_malaga.png",
        p_all, width = 12, height = 13, dpi = 200, bg = "white")
 
-cat("Saved figures/jesus-figures/daily_gp_malaga.png\n")
+cat("Saved figures/presentation/daily_gp_malaga.png\n")
 
 saveRDS(list(fit = fit, stan_data = stan_data, threshold = u,
              knot_days = knot_days, interp_weights = interp_weights),

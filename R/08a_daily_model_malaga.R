@@ -256,10 +256,10 @@ p2 <- ggplot(rl_comp, aes(x = rp)) +
         legend.position = "bottom")
 
 p_all <- p1 / p2
-ggsave("figures/jesus-figures/daily_model_malaga.png",
+ggsave("figures/presentation/daily_model_malaga.png",
        p_all, width = 12, height = 10, dpi = 200, bg = "white")
 
-cat("Saved figures/jesus-figures/daily_model_malaga.png\n")
+cat("Saved figures/presentation/daily_model_malaga.png\n")
 
 # Save results
 saveRDS(list(fit = fit, stan_data = stan_data, threshold = u),

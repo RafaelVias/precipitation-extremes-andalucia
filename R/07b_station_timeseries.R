@@ -153,10 +153,10 @@ p_all <- (plots[[1]] + plots[[2]] + plots[[3]]) /
     )
   )
 
-ggsave("figures/jesus-figures/station_annual_maxima.png",
+ggsave("figures/presentation/station_annual_maxima.png",
        p_all, width = 18, height = 10, dpi = 200, bg = "white")
 
-cat("Saved figures/jesus-figures/station_annual_maxima.png\n")
+cat("Saved figures/presentation/station_annual_maxima.png\n")
 cat("========================================\n")
 cat("Done.\n")
 cat("========================================\n")

@@ -177,10 +177,10 @@ p_all <- p_mean / p_heavy / p_am +
     )
   )
 
-ggsave("figures/jesus-figures/seasonal_rainfall.png",
+ggsave("figures/presentation/seasonal_rainfall.png",
        p_all, width = 18, height = 11, dpi = 200, bg = "white")
 
-cat("Saved figures/jesus-figures/seasonal_rainfall.png\n")
+cat("Saved figures/presentation/seasonal_rainfall.png\n")
 cat("========================================\n")
 cat("Done.\n")
 cat("========================================\n")

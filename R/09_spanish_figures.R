@@ -224,7 +224,7 @@ p_rl <- make_rl_panel(10) + make_rl_panel(20) + make_rl_panel(50) + make_rl_pane
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/jesus-figures/niveles_retorno.png",
+ggsave("figures/presentation/niveles_retorno.png",
        p_rl, width = 14, height = 12, dpi = 200, bg = "white")
 cat("  Guardado niveles_retorno.png\n")
 
@@ -334,7 +334,7 @@ p_exc <- (panels_exc[[1]] + panels_exc[[2]] + panels_exc[[3]]) /
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/jesus-figures/probabilidad_superacion.png",
+ggsave("figures/presentation/probabilidad_superacion.png",
        p_exc, width = 16, height = 13, dpi = 200, bg = "white")
 cat("  Guardado probabilidad_superacion.png\n")
 
@@ -438,7 +438,7 @@ p_stn <- (plots_es[[1]] + plots_es[[2]] + plots_es[[3]]) /
       plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/jesus-figures/maximos_anuales_estaciones.png",
+ggsave("figures/presentation/maximos_anuales_estaciones.png",
        p_stn, width = 18, height = 10, dpi = 200, bg = "white")
 cat("  Guardado maximos_anuales_estaciones.png\n")
 

@@ -303,8 +303,8 @@ p_mean <- (panels_mean[[1]] + panels_mean[[2]] + panels_mean[[3]]) /
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/jesus-figures/exceedance_prob_mean.png", p_mean, width = 16, height = 13, dpi = 200, bg = "white")
-cat("  Saved figures/jesus-figures/exceedance_prob_mean.png\n")
+ggsave("figures/presentation/exceedance_prob_mean.png", p_mean, width = 16, height = 13, dpi = 200, bg = "white")
+cat("  Saved figures/presentation/exceedance_prob_mean.png\n")
 
 # ---- 7. Plot 3: Posterior SD of exceedance probability ----
 cat("Generating Plot 3 (exceedance probability SD)...\n")
@@ -335,8 +335,8 @@ p_sd <- (panels_sd[[1]] + panels_sd[[2]] + panels_sd[[3]]) /
                   plot.subtitle = element_text(size = 11, colour = "grey40"))
   )
 
-ggsave("figures/jesus-figures/exceedance_prob_sd.png", p_sd, width = 16, height = 13, dpi = 200, bg = "white")
-cat("  Saved figures/jesus-figures/exceedance_prob_sd.png\n")
+ggsave("figures/presentation/exceedance_prob_sd.png", p_sd, width = 16, height = 13, dpi = 200, bg = "white")
+cat("  Saved figures/presentation/exceedance_prob_sd.png\n")
 
 cat("========================================\n")
 cat("Done.\n")

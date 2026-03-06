@@ -299,10 +299,10 @@ p_int <- ggplot(int_df, aes(x = doy)) +
   theme(plot.title = element_text(face = "bold"), legend.position = "bottom")
 
 p_all <- p_seas / p_int / p_rl
-ggsave("figures/jesus-figures/daily_hsgp_comparison.png",
+ggsave("figures/presentation/daily_hsgp_comparison.png",
        p_all, width = 12, height = 14, dpi = 200, bg = "white")
 
-cat("Saved figures/jesus-figures/daily_hsgp_comparison.png\n")
+cat("Saved figures/presentation/daily_hsgp_comparison.png\n")
 
 saveRDS(list(fit = fit, stan_data = stan_data, threshold = u, J = J, elapsed = elapsed),
         "data/daily_hsgp_malaga.rds")
