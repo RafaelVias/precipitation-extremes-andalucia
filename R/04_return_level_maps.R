@@ -230,8 +230,6 @@ make_panel <- function(rp_val) {
 
   p +
     geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
-    geom_point(data = s_sub, aes(x = lon, y = lat),
-               shape = 21, size = 1.0, fill = NA, colour = "grey50", stroke = 0.3) +
     labs(title = paste0(rp_val, "-year return level")) +
     coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
     theme_minimal(base_size = 12) +

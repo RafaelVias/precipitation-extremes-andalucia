@@ -125,4 +125,4 @@ Rscript R/06_station_diagnostics.R  # Station return level curves (Figure 3)
 
 ## Acknowledgements
 
-The Stage 1 fitting code (`vendor/max_and_smooth/`) is adapted from the companion repository to Hazra, Huser & Jóhannesson (2023): [arnabstatswithR/max_and_smooth](https://github.com/arnabstatswithR/max_and_smooth), originally developed by Arnab Hazra, Raphaël Huser, and Birgir Hrafnkelsson.
+The Stage 2 Stan implementation — in particular the sparse Cholesky surrogate likelihood (`normal_prec_chol_lpdf`) and the non-centered spatial parameterisation — is adapted from Brynjólfur Gauti Guðmundsson's [maxandsmooth](https://github.com/bgautijonsson/maxandsmooth) R package. The Stage 1 fitting code (`vendor/max_and_smooth/`) is from the companion repository to Hazra, Huser & Jóhannesson (2023): [arnabstatswithR/max_and_smooth](https://github.com/arnabstatswithR/max_and_smooth).
