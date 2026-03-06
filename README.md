@@ -60,11 +60,15 @@ The intercepts receive vague priors: $\mu_k \sim \mathcal{N}(0, 100^2)$. The mod
 
 ### Prediction
 
-Return levels and exceedance probabilities at unobserved locations are obtained by **simple kriging** from the posterior GP. For each parameter $k$, kriging weights are computed using the posterior mean hyperparameters $(\hat\sigma_k, \hat\rho_k, \hat\nu_k)$:
+Return levels and exceedance probabilities at unobserved locations are obtained from the **conditional distribution of the Matérn GP**. For each parameter $k$, the GP hyperparameters $(\hat\sigma_k, \hat\rho_k, \hat\nu_k)$ are fixed at their posterior means to compute the conditional moments at a prediction location $s^*$:
 
-$$\eta_k^* = \mu_k + \gamma_k^\top \, \Sigma_k^{-1} \, (\eta_k - \mu_k),$$
+$$\eta_k(s^*) \mid \eta_k \;\sim\; \mathcal{N}\!\bigl(\mu_{\mathrm{cond}},\; \sigma^2_{\mathrm{cond}}\bigr),$$
 
-where $\gamma_k$ is the cross-covariance between the prediction location and the stations, and $\Sigma_k$ is the station-station covariance matrix (including nugget). Predictions are computed on a 0.025° grid across Andalucía, drawing from the conditional posterior to propagate uncertainty.
+where
+
+$$\mu_{\mathrm{cond}} = \mu_k + \gamma_k^\top \, \Sigma_k^{-1} \, (\eta_k - \mu_k), \qquad \sigma^2_{\mathrm{cond}} = \sigma_k^2 - \gamma_k^\top \, \Sigma_k^{-1} \, \gamma_k,$$
+
+with $\gamma_k$ the cross-covariance vector between $s^*$ and the stations, and $\Sigma_k$ the station-station covariance matrix (including nugget). For each posterior draw of the latent field $\eta_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\mathrm{cond}}$ is fully propagated into the posterior predictive return levels. Predictions are computed on a 0.025° grid across Andalucía.
 
 ## Data
 
