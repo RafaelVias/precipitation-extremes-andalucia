@@ -2,6 +2,15 @@
 
 Bayesian spatial extreme value analysis of daily precipitation across Andalucía, Spain, using the **Max-and-Smooth** two-stage framework with Matérn(5/2) Gaussian process spatial smoothing and penalised complexity (PC) priors.
 
+## Data
+
+- **Source**: AEMET (Agencia Estatal de Meteorología) OpenData API
+- **Coverage**: 127 stations across all 8 provinces of Andalucía
+- **Period**: 1950–2024 (varies by station; minimum record length governed by Bayesian borrowing of strength)
+- **QC**: Station-years require ≥90% daily completeness (≥330 days/year)
+
+![Station network](figures/station_map.png)
+
 ## Method
 
 The analysis follows the **Max-and-Smooth** approach of Hrafnkelsson et al. (2021) as presented in Hazra, Huser & Jóhannesson (2023, Ch. 7). Annual maximum daily rainfall at each station is modelled by a generalised extreme value (GEV) distribution whose parameters vary smoothly across space through Gaussian process priors.
@@ -70,13 +79,6 @@ $$\mu_{\mathrm{cond}} = \mu_k + \gamma_k^\top \, \Sigma_k^{-1} \, (\eta_k - \mu_
 
 with $\gamma_k$ the cross-covariance vector between $s^*$ and the stations, and $\Sigma_k$ the station-station covariance matrix (including nugget). For each posterior draw of the latent field $\eta_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\mathrm{cond}}$ is fully propagated into the posterior predictive return levels. Predictions are computed on a 0.025° grid across Andalucía.
 
-## Data
-
-- **Source**: AEMET (Agencia Estatal de Meteorología) OpenData API
-- **Coverage**: 127 stations across all 8 provinces of Andalucía
-- **Period**: 1950–2024 (varies by station; minimum record length governed by Bayesian borrowing of strength)
-- **QC**: Station-years require ≥90% daily completeness (≥330 days/year)
-
 ## Results
 
 ### Return level maps
@@ -102,6 +104,7 @@ Return level curves at 6 selected stations. Points show observed annual maxima (
 Pre-computed results are in `data/stage1_results.rds` and `data/stage2_matern_pc_results.rds` (gitignored; regenerate with steps 2–3 below).
 
 ```bash
+Rscript R/00_station_map.R          # Station network map (Figure 0)
 Rscript R/01_acquire_data.R         # Download AEMET daily precipitation
 Rscript R/02_stage1_mle.R           # Stage 1: per-station PPP GEV MLEs (~10 min)
 Rscript R/03_stage2_smooth.R        # Stage 2: spatial GP smoothing in Stan (~18 min)
