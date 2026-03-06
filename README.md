@@ -105,6 +105,12 @@ Return level curves at 6 selected stations. Points show observed annual maxima (
 
 ![Station return level curves](figures/station_return_level_curves.png)
 
+## Dependencies
+
+- **R** (≥ 4.2)
+- **Stan**: [CmdStan](https://mc-stan.org/cmdstanr/) (≥ 2.33)
+- **R packages**: cmdstanr, bayesplot, ggplot2, patchwork, sf, rnaturalearth, rnaturalearthdata, dplyr, lubridate, Matrix, climaemet
+
 ## Pipeline
 
 Pre-computed results are in `data/stage1_results.rds` and `data/stage2_matern_pc_results.rds` (gitignored; regenerate with steps 2–3 below).
@@ -124,7 +130,7 @@ Rscript R/07_convergence_diagnostics.R  # MCMC convergence diagnostics (diagnost
 
 - Hrafnkelsson, B., Siegert, S., Huser, R., Bakka, H. & Jóhannesson, Á. V. (2021). Max-and-Smooth: a two-step approach for approximate Bayesian inference in latent Gaussian models. *Bayesian Analysis*, 16(2), 611–638. [doi:10.1214/20-BA1219](https://doi.org/10.1214/20-BA1219)
 
-- Hazra, A., Huser, R. & Jóhannesson, Á. V. (2023). Bayesian spatial modelling of extreme precipitation return levels. In: Hrafnkelsson, B. (ed.) *Bayesian Latent Gaussian Models*. Chapman & Hall/CRC, Ch. 7.
+- Hazra, A., Huser, R. & Jóhannesson, Á. V. (2023). Bayesian spatial modelling of extreme precipitation return levels. In: Hrafnkelsson, B. (ed.) *Bayesian Latent Gaussian Models*. Chapman & Hall/CRC, Ch. 7. [doi:10.1007/978-3-031-39791-2_7](https://doi.org/10.1007/978-3-031-39791-2_7)
 
 - Fuglstad, G.-A., Simpson, D., Lindgren, F. & Rue, H. (2019). Constructing priors that penalize the complexity of Gaussian random fields. *Journal of the American Statistical Association*, 114(525), 445–452. [doi:10.1080/01621459.2017.1415907](https://doi.org/10.1080/01621459.2017.1415907)
 

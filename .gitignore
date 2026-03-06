@@ -8,6 +8,17 @@ data/stage2_matern_pc_results.rds
 # R
 *.Rhistory
 .Rproj.user/
+Rplots.pdf
+cache/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.log
+*.out
+*.toc
+*.tex
+*-concordance.tex
 
 # OS files
 .DS_Store
@@ -20,6 +31,9 @@ Thumbs.db
 
 # Archive of superseded work (kept locally, not in repo)
 archive/
+
+# Old project memo (kept locally)
+project_memo.pdf
 
 # Logs
 logs/
