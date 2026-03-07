@@ -101,6 +101,8 @@ Posterior mean return levels at *T* = 10, 20, 50, and 100 years, interpolated ac
 
 ![Return level maps](figures/return_level_maps.png)
 
+Posterior standard deviation of the return level estimates, reflecting uncertainty from both the GEV parameter estimation and the spatial interpolation.
+
 ![Return level SD](figures/return_level_maps_sd.png)
 
 ### Exceedance probability
@@ -108,6 +110,8 @@ Posterior mean return levels at *T* = 10, 20, 50, and 100 years, interpolated ac
 Posterior mean probability that the annual maximum daily rainfall exceeds a given threshold (100, 150, 200 mm) at least once within a planning horizon (20, 50, 100 years).
 
 ![Exceedance probability](figures/exceedance_prob.png)
+
+Posterior standard deviation of the exceedance probabilities, capturing uncertainty in both the tail behaviour and the spatial prediction.
 
 ![Exceedance probability SD](figures/exceedance_prob_sd.png)
 

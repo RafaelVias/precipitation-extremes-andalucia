@@ -101,6 +101,8 @@ Media a posteriori de los niveles de retorno para *T* = 10, 20, 50 y 100 años, 
 
 ![Mapas de niveles de retorno](figures/es/return_level_maps.png)
 
+Desviación estándar a posteriori de las estimaciones de niveles de retorno, reflejando la incertidumbre tanto de la estimación de parámetros GEV como de la interpolación espacial.
+
 ![DE de niveles de retorno](figures/es/return_level_maps_sd.png)
 
 ### Probabilidad de excedencia
@@ -108,6 +110,8 @@ Media a posteriori de los niveles de retorno para *T* = 10, 20, 50 y 100 años, 
 Media a posteriori de la probabilidad de que la precipitación máxima diaria anual supere un umbral dado (100, 150, 200 mm) al menos una vez dentro de un horizonte de planificación (20, 50, 100 años).
 
 ![Probabilidad de excedencia](figures/es/exceedance_prob.png)
+
+Desviación estándar a posteriori de las probabilidades de excedencia, capturando la incertidumbre tanto en el comportamiento de la cola como en la predicción espacial.
 
 ![DE de probabilidad de excedencia](figures/es/exceedance_prob_sd.png)
 
