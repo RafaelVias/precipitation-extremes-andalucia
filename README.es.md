@@ -101,12 +101,7 @@ Media a posteriori de los niveles de retorno para *T* = 10, 20, 50 y 100 años, 
 
 ![Mapas de niveles de retorno](figures/es/return_level_maps.png)
 
-<details>
-<summary>Desviación estándar a posteriori</summary>
-
 ![DE de niveles de retorno](figures/es/return_level_maps_sd.png)
-
-</details>
 
 ### Probabilidad de excedencia
 
@@ -114,12 +109,7 @@ Media a posteriori de la probabilidad de que la precipitación máxima diaria an
 
 ![Probabilidad de excedencia](figures/es/exceedance_prob.png)
 
-<details>
-<summary>Desviación estándar a posteriori</summary>
-
 ![DE de probabilidad de excedencia](figures/es/exceedance_prob_sd.png)
-
-</details>
 
 ### Diagnósticos por estación
 
