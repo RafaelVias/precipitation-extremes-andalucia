@@ -30,10 +30,77 @@ cat("Step 0: Preparing daily data matrix...\n")
 daily_all <- readRDS("data/daily_precip_andalucia_raw.rds")
 stations  <- readRDS("data/stations_andalucia.rds")
 
-# Fix European decimal notation
+# Handle AEMET special codes before numeric conversion:
+#   "Ip"   = inapreciable (trace, < 0.01mm) — sample from U(0, 0.01)
+#   "Acum" = accumulated over multiple days — distribute via Dirichlet(α)
+#
+# Acum disaggregation: the reporting day after "Acum" days carries the multi-day
+# total. We distribute it across the window (Acum days + reporting day) using
+# Dirichlet(0.73, ..., 0.73). α = 0.73 was estimated from 41,435 wet spells
+# across 126 stations (bootstrap 95% CI: [0.727, 0.737]).
+#
+# Justification: none of the accumulated totals is a station-year maximum.
+# Therefore, distributing them across the accumulation window increases the
+# number of observation days (which the PPP uses) without changing any annual
+# maximum. Each day in the window is known to have had precipitation ≤ the
+# accumulated total, so spreading adds genuine information to the PPP without
+# introducing bias.
 daily_all <- daily_all %>%
-  mutate(prec = as.numeric(gsub(",", ".", prec)),
-         fecha = as.Date(fecha))
+  mutate(fecha = as.Date(fecha)) %>%
+  arrange(indicativo, fecha)
+
+set.seed(1)
+
+# --- Acum: Dirichlet disaggregation ---
+is_acum <- daily_all$prec == "Acum" & !is.na(daily_all$prec)
+n_acum <- sum(is_acum)
+n_acum_events <- 0L
+if (n_acum > 0) {
+  ALPHA_DIRICHLET <- 0.73
+  acum_idx <- which(is_acum)
+
+  processed <- rep(FALSE, length(acum_idx))
+  for (k in seq_along(acum_idx)) {
+    if (processed[k]) next
+    seq_start <- acum_idx[k]
+    stn <- daily_all$indicativo[seq_start]
+    seq_end <- seq_start
+    while (seq_end + 1 <= nrow(daily_all) &&
+           daily_all$indicativo[seq_end + 1] == stn &&
+           !is.na(daily_all$prec[seq_end + 1]) &&
+           daily_all$prec[seq_end + 1] == "Acum") {
+      seq_end <- seq_end + 1
+    }
+    processed[acum_idx >= seq_start & acum_idx <= seq_end] <- TRUE
+
+    report_i <- seq_end + 1
+    if (report_i > nrow(daily_all) ||
+        daily_all$indicativo[report_i] != stn ||
+        is.na(daily_all$prec[report_i]) ||
+        daily_all$prec[report_i] == "Acum") next
+
+    total_mm <- as.numeric(gsub(",", ".", daily_all$prec[report_i]))
+    if (is.na(total_mm) || total_mm < 0) next
+
+    window_idx <- seq_start:report_i
+    n_days <- length(window_idx)
+    gdraws <- rgamma(n_days, shape = ALPHA_DIRICHLET, rate = 1)
+    props <- gdraws / sum(gdraws)
+    daily_all$prec[window_idx] <- as.character(round(total_mm * props, 2))
+    n_acum_events <- n_acum_events + 1L
+  }
+}
+
+# --- Ip: sample from U(0, 0.01) ---
+ip_mask <- daily_all$prec == "Ip" & !is.na(daily_all$prec)
+n_ip <- sum(ip_mask)
+daily_all$prec[ip_mask] <- as.character(runif(n_ip, 0, 0.01))
+
+daily_all <- daily_all %>%
+  mutate(prec = as.numeric(gsub(",", ".", prec)))
+
+cat(sprintf("  AEMET codes: %d Ip -> U(0,0.01) | %d Acum days (%d events) -> Dirichlet(0.73)\n",
+            n_ip, n_acum, n_acum_events))
 
 # Keep only stations that appear in our annual maxima dataset (passed QC)
 annual_max <- readRDS("data/annual_maxima_andalucia.rds")

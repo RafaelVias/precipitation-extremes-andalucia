@@ -140,16 +140,16 @@ inits <- list(
 cat("  Compiling Stan model...\n")
 model <- cmdstan_model("Stan/smooth_matern_pc.stan")
 
-cat("  Running NUTS (4 chains x 2000 iterations)...\n")
+cat("  Running NUTS (4 chains x 4000 iterations)...\n")
 t0 <- proc.time()
 
 fit <- model$sample(
   data            = stan_data,
   chains          = 4,
   parallel_chains = 4,
-  iter_warmup     = 1000,
-  iter_sampling   = 1000,
-  refresh         = 100,
+  iter_warmup     = 2000,
+  iter_sampling   = 2000,
+  refresh         = 200,
   adapt_delta     = 0.9,
   max_treedepth   = 12,
   init            = rep(list(inits), 4)

@@ -245,10 +245,10 @@ make_panel <- function(rp_val) {
 p_all <- make_panel(10) + make_panel(20) + make_panel(50) + make_panel(100) +
   plot_layout(nrow = 2, ncol = 2) +
   plot_annotation(
-    title = "Maximum daily rainfall return levels across Andaluc\u00eda",
+    title = "Maximum daily rainfall return levels: posterior mean",
     subtitle = sprintf(
-      "Posterior mean | Mat\u00e9rn(5/2) GP + PC priors | %d stations",
-      ns),
+      "%d stations | %d grid points | %d posterior draws",
+      ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 15),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
                   plot.margin = margin(2, 2, 2, 2))
@@ -293,8 +293,8 @@ p_sd <- make_sd_panel(10) + make_sd_panel(20) + make_sd_panel(50) + make_sd_pane
   plot_annotation(
     title = "Maximum daily rainfall return levels: posterior standard deviation",
     subtitle = sprintf(
-      "Mat\u00e9rn(5/2) GP + PC priors | %d stations",
-      ns),
+      "%d stations | %d grid points | %d posterior draws",
+      ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 15),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
                   plot.margin = margin(2, 2, 2, 2))

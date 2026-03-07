@@ -294,7 +294,7 @@ p_mean <- (panels_mean[[1]] + panels_mean[[2]] + panels_mean[[3]]) /
   plot_annotation(
     title = "Exceedance probability: posterior mean",
     subtitle = sprintf(
-      "Mat\u00e9rn(5/2) GP + PC priors | %d stations, %d grid points, %d posterior draws",
+      "%d stations | %d grid points | %d posterior draws",
       ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 14),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
@@ -327,7 +327,7 @@ p_sd <- (panels_sd[[1]] + panels_sd[[2]] + panels_sd[[3]]) /
   plot_annotation(
     title = "Exceedance probability: posterior standard deviation",
     subtitle = sprintf(
-      "Mat\u00e9rn(5/2) GP + PC priors | %d stations, %d grid points, %d posterior draws",
+      "%d stations | %d grid points | %d posterior draws",
       ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 14),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),

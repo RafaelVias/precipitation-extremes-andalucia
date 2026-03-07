@@ -267,8 +267,9 @@ make_rl_panel <- function(rp_val) {
 p_rl <- make_rl_panel(10) + make_rl_panel(20) + make_rl_panel(50) + make_rl_panel(100) +
   plot_layout(nrow = 2, ncol = 2) +
   plot_annotation(
-    title = "Niveles de retorno de precipitaci\u00f3n m\u00e1xima diaria en Andaluc\u00eda",
-    subtitle = sprintf("Media a posteriori | Mat\u00e9rn(5/2) GP + priors PC | %d estaciones", ns),
+    title = "Niveles de retorno de precipitaci\u00f3n m\u00e1xima diaria: media a posteriori",
+    subtitle = sprintf("%d estaciones | %d puntos de malla | %d muestras a posteriori",
+                       ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 15),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
                   plot.margin = margin(2, 2, 2, 2))
@@ -305,7 +306,8 @@ p_rl_sd <- make_rl_sd_panel(10) + make_rl_sd_panel(20) + make_rl_sd_panel(50) + 
   plot_layout(nrow = 2, ncol = 2) +
   plot_annotation(
     title = "Niveles de retorno: desviaci\u00f3n est\u00e1ndar a posteriori",
-    subtitle = sprintf("Mat\u00e9rn(5/2) GP + priors PC | %d estaciones", ns),
+    subtitle = sprintf("%d estaciones | %d puntos de malla | %d muestras a posteriori",
+                       ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 15),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
                   plot.margin = margin(2, 2, 2, 2))
@@ -411,7 +413,7 @@ p_exc <- (panels_es[[1]] + panels_es[[2]] + panels_es[[3]]) /
          (panels_es[[7]] + panels_es[[8]] + panels_es[[9]]) +
   plot_annotation(
     title = "Probabilidad de excedencia: media a posteriori",
-    subtitle = sprintf("Mat\u00e9rn(5/2) GP + priors PC | %d estaciones, %d puntos de malla, %d muestras a posteriori",
+    subtitle = sprintf("%d estaciones | %d puntos de malla | %d muestras a posteriori",
                        ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 14),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
@@ -454,7 +456,7 @@ p_exc_sd <- (panels_sd_es[[1]] + panels_sd_es[[2]] + panels_sd_es[[3]]) /
             (panels_sd_es[[7]] + panels_sd_es[[8]] + panels_sd_es[[9]]) +
   plot_annotation(
     title = "Probabilidad de excedencia: desviaci\u00f3n est\u00e1ndar a posteriori",
-    subtitle = sprintf("Mat\u00e9rn(5/2) GP + priors PC | %d estaciones, %d puntos de malla, %d muestras a posteriori",
+    subtitle = sprintf("%d estaciones | %d puntos de malla | %d muestras a posteriori",
                        ns, n_pred, n_draws),
     theme = theme(plot.title = element_text(face = "bold", size = 14),
                   plot.subtitle = element_text(size = 11, colour = "grey40"),
