@@ -1,9 +1,12 @@
 # Compiled Stan models (regenerated at runtime)
 Stan/*/
+Stan/smooth_matern_pc
+Stan/smooth_matern_pc_cov
 
 # Large data files (regenerable from pipeline)
 data/daily_precip_andalucia_raw.rds
 data/stage2_matern_pc_results.rds
+data/dem/
 
 # R
 *.Rhistory
@@ -28,6 +31,10 @@ Thumbs.db
 *~
 *.tmp
 *.bak
+
+# Exploratory / working figures (not for the repo)
+figures/exploration/
+R/09_altitude_exploration.R
 
 # Archive of superseded work (kept locally, not in repo)
 archive/

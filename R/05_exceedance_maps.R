@@ -32,29 +32,50 @@ eta_tau_draws <- s2$tau.selected
 eta_phi_draws <- s2$phi.selected
 n_draws <- nrow(eta_psi_draws)
 
-mu_psi_draws <- s2$beta_psi
-mu_tau_draws <- s2$beta_tau
-mu_phi_draws <- s2$beta_phi
+# Covariate model: beta_psi_draws is n_draws x n_cov_psi matrix
+beta_psi_draws <- s2$beta_psi_draws   # n_draws x 4
+mu_tau_draws   <- s2$beta_tau         # length n_draws
+mu_phi_draws   <- s2$beta_phi         # length n_draws
+cov_std        <- s2$cov_standardisation
+
+# phi has no GP — only intercept + iid noise
+phi_has_gp       <- isTRUE(s2$phi_has_gp)
+nugget_phi_draws <- s2$nugget_phi     # length n_draws (iid noise SD)
 
 cat("  Stations:", ns, "| Draws:", n_draws, "\n")
+cat(sprintf("  Covariates: %d coefficients for psi\n", ncol(beta_psi_draws)))
+cat(sprintf("  phi has GP: %s\n", phi_has_gp))
 
-# ---- 2. Prediction grid ----
-cat("Creating prediction grid...\n")
+# ---- 2. Load grid covariates & build design matrices ----
+cat("Loading grid covariates...\n")
 
-states <- ne_states(country = "Spain", returnclass = "sf")
-andalucia_provs <- states[grep("Andaluc", states$region), ]
-andalucia <- st_union(andalucia_provs)
+grid_cov <- readRDS("data/grid_covariates.rds")
+pred_pts <- data.frame(lon = grid_cov$lon, lat = grid_cov$lat)
+n_pred   <- nrow(pred_pts)
 
-pred_res <- 0.025
-bbox <- st_bbox(andalucia)
-pred_pts <- expand.grid(
-  lon = seq(bbox["xmin"] + pred_res / 2, bbox["xmax"], by = pred_res),
-  lat = seq(bbox["ymin"] + pred_res / 2, bbox["ymax"], by = pred_res)
-)
-pred_sf <- st_as_sf(pred_pts, coords = c("lon", "lat"), crs = 4326)
-inside <- st_intersects(pred_sf, andalucia, sparse = FALSE)[, 1]
-pred_pts <- pred_pts[inside, ]
-n_pred <- nrow(pred_pts)
+pred_res <- abs(sort(unique(grid_cov$lon))[2] - sort(unique(grid_cov$lon))[1])
+
+# Station-level design matrix (same standardisation)
+stn_exp <- readRDS("data/station_exposure.rds")
+s1_ids  <- s1$station_meta$indicativo
+exp_idx <- match(s1_ids, stn_exp$indicativo)
+alt_std_stn <- (stn_exp$alt_dem[exp_idx] - cov_std$alt_mean) / cov_std$alt_sd
+exp_std_stn <- (stn_exp$exposure_mean[exp_idx] - cov_std$exp_mean) / cov_std$exp_sd
+X_stn <- cbind(1, alt_std_stn, exp_std_stn, alt_std_stn * exp_std_stn)
+
+# Clausius-Clapeyron attenuation of altitude effect above highest station
+# (see Formetta et al. 2022; H_w = moisture scale height)
+h_peak <- max(stn_exp$alt_dem[exp_idx])
+H_w    <- 2000
+alt_raw_pred <- grid_cov$alt_dem
+above <- pmax(0, alt_raw_pred - h_peak)
+decay <- exp(-above / H_w)
+alt_eff <- ifelse(alt_raw_pred <= h_peak, alt_raw_pred, h_peak + above * decay)
+alt_std_pred <- (alt_eff - cov_std$alt_mean) / cov_std$alt_sd
+
+exp_std_pred <- (grid_cov$exposure_mean - cov_std$exp_mean) / cov_std$exp_sd
+exp_std_pred <- pmin(pmax(exp_std_pred, min(exp_std_stn)), max(exp_std_stn))
+X_pred <- cbind(1, alt_std_pred, exp_std_pred, alt_std_pred * exp_std_pred)
 
 cat("  Grid:", n_pred, "points at", pred_res, "deg\n")
 
@@ -66,14 +87,18 @@ matern52 <- function(d, sigma2, phi) {
   sigma2 * (1 + s5 + s5^2 / 3) * exp(-s5)
 }
 
-sigma_gp <- c(mean(s2$sigma_gp_psi), mean(s2$sigma_gp_tau), mean(s2$sigma_gp_phi))
-phi_gp   <- c(mean(s2$phi_gp_psi), mean(s2$phi_gp_tau), mean(s2$phi_gp_phi))
-nugget   <- c(mean(s2$nugget_psi), mean(s2$nugget_tau), mean(s2$nugget_phi))
+# GP hyperparameters (posterior means) — only for psi and tau
+sigma_gp <- c(mean(s2$sigma_gp_psi), mean(s2$sigma_gp_tau))
+phi_gp   <- c(mean(s2$phi_gp_psi), mean(s2$phi_gp_tau))
+nugget   <- c(mean(s2$nugget_psi), mean(s2$nugget_tau))
 
 dist_ss <- as.matrix(dist(loc))
-dist_pg <- as.matrix(
-  dist(rbind(as.matrix(pred_pts), as.matrix(data.frame(lon = loc[, "lon"], lat = loc[, "lat"]))))
-)[1:n_pred, (n_pred + 1):(n_pred + ns)]
+# Compute prediction-to-station distances directly (avoids huge intermediate matrix)
+dist_pg <- matrix(0, n_pred, ns)
+for (j in seq_len(ns)) {
+  dist_pg[, j] <- sqrt((pred_pts$lon - loc[j, "lon"])^2 +
+                        (pred_pts$lat - loc[j, "lat"])^2)
+}
 
 compute_kriging <- function(k) {
   sig2 <- sigma_gp[k]^2
@@ -89,8 +114,8 @@ compute_kriging <- function(k) {
   list(W = W, cond_sd = sqrt(cond_var))
 }
 
-krig <- lapply(1:3, compute_kriging)
-cat("  Kriging weights computed\n")
+krig <- lapply(1:2, compute_kriging)  # only psi and tau
+cat("  Kriging weights computed (psi and tau only — phi is iid)\n")
 
 # ---- 4. Compute exceedance probabilities ----
 cat("Computing exceedance probabilities at grid points...\n")
@@ -116,9 +141,11 @@ n_hor <- length(horizons)
 exc_mean <- array(0, dim = c(n_pred, n_thr, n_hor))
 exc_sd   <- array(0, dim = c(n_pred, n_thr, n_hor))
 
-resid_psi <- sweep(eta_psi_draws, 1, mu_psi_draws, "-")
+# GP residuals: eta - covariate mean
+mean_psi_at_stations <- beta_psi_draws %*% t(X_stn)   # n_draws × ns
+resid_psi <- eta_psi_draws - mean_psi_at_stations
 resid_tau <- sweep(eta_tau_draws, 1, mu_tau_draws, "-")
-resid_phi <- sweep(eta_phi_draws, 1, mu_phi_draws, "-")
+# phi: no GP residuals (iid noise, not spatially correlated)
 
 chunk_size <- 2000
 n_chunks <- ceiling(n_pred / chunk_size)
@@ -133,17 +160,36 @@ for (ch in seq_len(n_chunks)) {
   if (ch %% 5 == 1 || ch == n_chunks)
     cat(sprintf("  Chunk %d/%d (points %d-%d)...\n", ch, n_chunks, idx_start, idx_end))
 
-  predict_param <- function(k, resid, mu_draws) {
-    W_ch <- krig[[k]]$W[idx, , drop = FALSE]
-    sd_ch <- matrix(krig[[k]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
-    pred <- sweep(t(W_ch %*% t(resid)), 1, mu_draws, "+")
+  # Predict psi: covariate mean + kriged GP residual + conditional noise
+  predict_psi_cov <- function() {
+    W_ch <- krig[[1]]$W[idx, , drop = FALSE]
+    sd_ch <- matrix(krig[[1]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
+    kriged <- t(W_ch %*% t(resid_psi))
+    mean_pred <- beta_psi_draws %*% t(X_pred[idx, , drop = FALSE])
+    pred <- mean_pred + kriged
     pred <- pred + matrix(rnorm(n_draws * nc), n_draws, nc) * sd_ch
     pred
   }
 
-  psi_ch <- predict_param(1, resid_psi, mu_psi_draws)
-  tau_ch <- predict_param(2, resid_tau, mu_tau_draws)
-  phi_ch <- predict_param(3, resid_phi, mu_phi_draws)
+  # Predict tau: scalar intercept + kriged GP residual + conditional noise
+  predict_tau <- function() {
+    W_ch <- krig[[2]]$W[idx, , drop = FALSE]
+    sd_ch <- matrix(krig[[2]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
+    pred <- sweep(t(W_ch %*% t(resid_tau)), 1, mu_tau_draws, "+")
+    pred <- pred + matrix(rnorm(n_draws * nc), n_draws, nc) * sd_ch
+    pred
+  }
+
+  # Predict phi: intercept + iid noise (no spatial kriging)
+  predict_phi_iid <- function() {
+    noise_sd <- matrix(nugget_phi_draws, nrow = n_draws, ncol = nc)
+    sweep(matrix(rnorm(n_draws * nc), n_draws, nc) * noise_sd,
+          1, mu_phi_draws, "+")
+  }
+
+  psi_ch <- predict_psi_cov()
+  tau_ch <- predict_tau()
+  phi_ch <- predict_phi_iid()
 
   mu_gev    <- exp(psi_ch)                  # n_draws x nc
   sigma_gev <- exp(psi_ch + tau_ch)
@@ -210,6 +256,9 @@ grid_df$hor_label <- factor(grid_df$hor_label,
 # ---- 6. Plot 2: Posterior mean exceedance probability ----
 cat("Generating Plot 2 (exceedance probability mean)...\n")
 
+states <- ne_states(country = "Spain", returnclass = "sf")
+andalucia_provs <- states[grep("Andaluc", states$region), ]
+andalucia <- st_union(andalucia_provs)
 neighbours <- states[states$name %in% c("Murcia", "Albacete", "Ciudad Real", "Badajoz"), ]
 portugal <- ne_countries(country = "Portugal", scale = "medium", returnclass = "sf")
 morocco  <- ne_countries(country = "Morocco", scale = "medium", returnclass = "sf")
@@ -236,38 +285,6 @@ make_panel <- function(data, fill_var, fill_label, title, option = "D",
               width = tile_res, height = tile_res) +
     scale_fill_viridis_c(option = option, name = fill_label,
                          limits = limits, oob = oob)
-
-  if (!is.null(contour_breaks)) {
-    data_range <- range(data[[fill_var]], na.rm = TRUE)
-    valid_breaks <- contour_breaks[contour_breaks > data_range[1] &
-                                   contour_breaks < data_range[2]]
-    if (length(valid_breaks) > 0) {
-      # Draw contour lines
-      p <- p +
-        geom_contour(data = data, aes(x = lon, y = lat, z = .data[[fill_var]]),
-                     breaks = valid_breaks,
-                     colour = "white", linewidth = 0.3, alpha = 0.85)
-
-      # One label per level: find a point well inside Andalucía
-      # Prefer points near the interior (away from edges)
-      mid_lon <- mean(range(data$lon))
-      mid_lat <- mean(range(data$lat))
-      label_df <- do.call(rbind, lapply(valid_breaks, function(lev) {
-        diffs <- abs(data[[fill_var]] - lev)
-        candidates <- which(diffs < quantile(diffs, 0.01))
-        if (length(candidates) == 0) candidates <- which.min(diffs)
-        # Score candidates by distance from map center (prefer interior)
-        dist_center <- (data$lon[candidates] - mid_lon)^2 +
-                       (data$lat[candidates] - mid_lat)^2
-        best <- candidates[which.min(dist_center)]
-        data.frame(lon = data$lon[best], lat = data$lat[best], label = lev)
-      }))
-
-      p <- p +
-        geom_text(data = label_df, aes(x = lon, y = lat, label = label),
-                  size = 1.8, colour = "white", fontface = "bold")
-    }
-  }
 
   p + geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
     labs(title = title) +
@@ -301,7 +318,7 @@ p_mean <- (panels_mean[[1]] + panels_mean[[2]] + panels_mean[[3]]) /
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/exceedance_prob.png", p_mean, width = 16, height = 10, dpi = 200, bg = "white")
+ggsave("figures/exceedance_prob.png", p_mean, width = 16, height = 10, dpi = 300, bg = "white")
 cat("  Saved figures/exceedance_prob.png\n")
 
 # ---- 7. Plot 3: Posterior SD exceedance probability ----
@@ -334,7 +351,7 @@ p_sd <- (panels_sd[[1]] + panels_sd[[2]] + panels_sd[[3]]) /
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/exceedance_prob_sd.png", p_sd, width = 16, height = 10, dpi = 200, bg = "white")
+ggsave("figures/exceedance_prob_sd.png", p_sd, width = 16, height = 10, dpi = 300, bg = "white")
 cat("  Saved figures/exceedance_prob_sd.png\n")
 
 cat("========================================\n")

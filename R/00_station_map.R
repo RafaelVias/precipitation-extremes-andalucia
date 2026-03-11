@@ -104,7 +104,7 @@ p <- ggplot() +
     legend.position = "right"
   )
 
-ggsave("figures/station_map.png", p, width = 12, height = 7, dpi = 200, bg = "white")
+ggsave("figures/station_map.png", p, width = 12, height = 7, dpi = 300, bg = "white")
 
 cat("Saved figures/station_map.png\n")
 cat("========================================\n")

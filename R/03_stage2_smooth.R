@@ -1,13 +1,18 @@
-# 03_stage2_smooth.R — Stage 2: Matérn(5/2) GP with PC priors
+# 03_stage2_smooth.R — Stage 2: Matern(5/2) GP with PC priors + covariates
 #
-# Spatial smoothing of Stage 1 MLEs using a Matérn(5/2) Gaussian process
+# Spatial smoothing of Stage 1 MLEs using a Matern(5/2) Gaussian process
 # with penalised complexity priors (Fuglstad et al. 2019), fitted in Stan.
 #
-# Priors:
-#   - mu ~ N(0, 100)
-#   - sigma_gp ~ Exp(lambda_s)
-#   - phi_gp ~ PC prior: lambda_rho * rho^{-2} * exp(-lambda_rho / rho)
-#   - nugget ~ Exp(lambda_nugget)
+# Model structure (following Hazra, Huser & Johannesson, BLGM 2023 Ch.7):
+#   eta_psi(s) = X(s)' beta_psi + f_psi(s)   (covariates + GP)
+#   eta_tau(s) = mu_tau + f_tau(s)             (intercept + GP)
+#   eta_phi(s) = mu_phi + nugget_phi * z(s)    (intercept + iid noise, NO GP)
+#
+# The shape parameter phi has no spatial GP because empirical variograms
+# show negligible spatial structure. This is more parsimonious and
+# eliminates the divergences that arose from the phi GP.
+#
+# Covariates on psi: intercept, altitude (std), exposure (std), alt x exposure
 #
 # Run from project root: Rscript R/03_stage2_smooth.R
 
@@ -17,7 +22,8 @@ library(Matrix)
 source("vendor/max_and_smooth/stage1_functions.R")
 
 cat("========================================\n")
-cat("STAGE 2 (Stan): Matern(5/2) GP + PC priors\n")
+cat("STAGE 2: Matern(5/2) GP + PC priors + covariates\n")
+cat("  phi (shape): intercept + iid noise (no GP)\n")
 cat("========================================\n")
 
 # ---- Load Stage 1 results ----
@@ -29,14 +35,48 @@ ns           <- nrow(loc)
 
 cat("  Stations:", ns, "\n")
 
-# ---- 1. Compute pairwise distance matrix ----
+# ---- 1. Load covariates ----
+cat("  Loading covariates...\n")
+
+stn_exp <- readRDS("data/station_exposure.rds")
+
+# Match station order to Stage 1 results
+s1_ids <- meta$indicativo
+exp_idx <- match(s1_ids, stn_exp$indicativo)
+
+if (any(is.na(exp_idx))) {
+  stop("Station mismatch: ", sum(is.na(exp_idx)), " Stage 1 stations not found in exposure data")
+}
+
+alt_raw <- stn_exp$alt_dem[exp_idx]
+exp_raw <- stn_exp$exposure_mean[exp_idx]
+
+# Standardise covariates (save params for prediction)
+alt_mean <- mean(alt_raw)
+alt_sd   <- sd(alt_raw)
+exp_mean <- mean(exp_raw)
+exp_sd   <- sd(exp_raw)
+
+alt_std <- (alt_raw - alt_mean) / alt_sd
+exp_std <- (exp_raw - exp_mean) / exp_sd
+
+# Design matrix: intercept, alt, exposure, alt x exposure
+X_psi <- cbind(1, alt_std, exp_std, alt_std * exp_std)
+n_cov_psi <- ncol(X_psi)
+
+cat(sprintf("  Covariates: altitude (mean=%.0f, sd=%.0f), exposure (mean=%.0f, sd=%.0f)\n",
+            alt_mean, alt_sd, exp_mean, exp_sd))
+cat(sprintf("  Design matrix: %d x %d (intercept + alt + exposure + alt x exposure)\n",
+            nrow(X_psi), n_cov_psi))
+
+# ---- 2. Compute pairwise distance matrix ----
 cat("  Computing pairwise distance matrix...\n")
 dist_mat <- as.matrix(dist(loc))
 
 cat("    Distance range:", round(min(dist_mat[upper.tri(dist_mat)]), 3), "-",
     round(max(dist_mat[upper.tri(dist_mat)]), 3), "degrees\n")
 
-# ---- 2. Build block-diagonal precision matrix ----
+# ---- 3. Build block-diagonal precision matrix ----
 cat("  Building precision matrix from bootstrap covariances...\n")
 
 psi_hat <- sapply(mles.covmats, function(x) x$mle[1])
@@ -77,33 +117,38 @@ log_det_Q <- sum(log(diag(L)))
 cat("    Precision matrix:", n_total, "x", n_total, "\n")
 cat("    Non-zeros in L:", length(value), "\n")
 
-# ---- 3. PC prior rate parameters ----
-# PC prior for range: P(rho < rho_0) = alpha  =>  lambda_rho = -rho_0 * log(alpha)
-# PC prior for sigma: P(sigma > U) = alpha    =>  lambda_s   = -log(alpha) / U
+# ---- 4. PC prior rate parameters ----
+# Only for psi and tau GPs (n_gp = 2)
+n_gp <- 2L
 
 # sigma_gp: P(sigma > 1) = 0.05  =>  lambda_s = 3.0
-lambda_s <- c(3.0, 3.0, 3.0)
+lambda_s <- c(3.0, 3.0)
 
-# phi_gp (range): P(rho < 0.1 deg) = 0.05  =>  lambda_rho = -0.1 * log(0.05) = 0.30
-lambda_rho <- c(0.30, 0.30, 0.30)
+# phi_gp (range): P(rho < 0.1 deg) = 0.05  =>  lambda_rho = 0.30
+lambda_rho <- c(0.30, 0.30)
 
-# nugget: P(nugget > 0.5) = 0.05  =>  lambda_nugget = -log(0.05)/0.5 = 6.0
-lambda_nugget <- c(6.0, 6.0, 6.0)
+# nugget: P(nugget > 0.5) = 0.05  =>  lambda_nugget = 6.0
+lambda_nugget <- c(6.0, 6.0)
 
-cat("\n  PC prior rates:\n")
-cat(sprintf("    lambda_s     = [%.1f, %.1f, %.1f]  (P(sigma>1)=0.05)\n",
-            lambda_s[1], lambda_s[2], lambda_s[3]))
-cat(sprintf("    lambda_rho   = [%.2f, %.2f, %.2f]  (P(rho<0.1)=0.05)\n",
-            lambda_rho[1], lambda_rho[2], lambda_rho[3]))
-cat(sprintf("    lambda_nugget= [%.1f, %.1f, %.1f]  (P(nugget>0.5)=0.05)\n",
-            lambda_nugget[1], lambda_nugget[2], lambda_nugget[3]))
+# Separate nugget prior for phi (iid noise)
+lambda_nugget_phi <- 6.0
 
-# ---- 4. Prepare Stan data ----
+cat("\n  PC prior rates (psi, tau GPs only):\n")
+cat(sprintf("    lambda_s     = [%.1f, %.1f]  (P(sigma>1)=0.05)\n",
+            lambda_s[1], lambda_s[2]))
+cat(sprintf("    lambda_rho   = [%.2f, %.2f]  (P(rho<0.1)=0.05)\n",
+            lambda_rho[1], lambda_rho[2]))
+cat(sprintf("    lambda_nugget= [%.1f, %.1f]  (P(nugget>0.5)=0.05)\n",
+            lambda_nugget[1], lambda_nugget[2]))
+cat(sprintf("    lambda_nugget_phi = %.1f\n", lambda_nugget_phi))
+
+# ---- 5. Prepare Stan data ----
 cat("  Preparing Stan data...\n")
 
 stan_data <- list(
   n_stations       = ns,
   n_param          = 3L,
+  n_gp             = n_gp,
   eta_hat          = eta_hat,
   dist_mat         = dist_mat,
   n_nonzero_chol_Q = length(value),
@@ -111,44 +156,58 @@ stan_data <- list(
   index            = as.integer(index),
   value            = value,
   log_det_Q        = log_det_Q,
+  n_cov_psi        = n_cov_psi,
+  X_psi            = X_psi,
+  prior_sd_beta    = 10.0,
   lambda_s         = lambda_s,
   lambda_rho       = lambda_rho,
-  lambda_nugget    = lambda_nugget
+  lambda_nugget    = lambda_nugget,
+  lambda_nugget_phi = lambda_nugget_phi
 )
 
-# ---- 5. Prepare initial values ----
-mu_psi <- mean(psi_hat)
+# ---- 6. Prepare initial values ----
+# OLS estimate for beta_psi as starting point
+beta_psi_init <- as.numeric(solve(t(X_psi) %*% X_psi, t(X_psi) %*% psi_hat))
+
 mu_tau <- mean(tau_hat)
 mu_phi <- mean(phi_hat)
-sd_psi <- sd(psi_hat)
+sd_psi <- sd(psi_hat - X_psi %*% beta_psi_init)
 sd_tau <- sd(tau_hat)
 sd_phi <- sd(phi_hat)
 
-psi_raw <- (psi_hat - mu_psi) / sd_psi
+psi_resid <- psi_hat - X_psi %*% beta_psi_init
+psi_raw <- as.numeric(psi_resid / sd_psi)
 tau_raw <- (tau_hat - mu_tau) / sd_tau
 phi_raw <- (phi_hat - mu_phi) / max(sd_phi, 1e-4)
 
 inits <- list(
-  mu       = c(mu_psi, mu_tau, mu_phi),
-  sigma_gp = c(sd_psi, sd_tau, max(sd_phi, 0.01)),
-  phi_gp   = c(0.3, 0.3, 0.5),
-  nugget   = c(0.01, 0.01, 0.01),
-  eta_raw  = cbind(psi_raw, tau_raw, phi_raw)
+  beta_psi   = beta_psi_init,
+  mu_tau     = mu_tau,
+  mu_phi     = mu_phi,
+  sigma_gp   = c(sd_psi, sd_tau),          # only psi, tau
+  phi_gp     = c(0.3, 0.3),                # only psi, tau
+  nugget     = c(0.01, 0.01),              # only psi, tau
+  nugget_phi = max(sd_phi, 0.01),          # iid noise SD for phi
+  eta_raw_gp = cbind(psi_raw, tau_raw),    # non-centered GP (psi, tau)
+  phi_raw    = phi_raw                      # non-centered iid (phi)
 )
 
-# ---- 6. Compile and run Stan model ----
-cat("  Compiling Stan model...\n")
-model <- cmdstan_model("Stan/smooth_matern_pc.stan")
+cat(sprintf("  OLS init for beta_psi: [%.3f, %.3f, %.3f, %.3f]\n",
+            beta_psi_init[1], beta_psi_init[2], beta_psi_init[3], beta_psi_init[4]))
 
-cat("  Running NUTS (4 chains x 4000 iterations)...\n")
+# ---- 7. Compile and run Stan model ----
+cat("  Compiling Stan model...\n")
+model <- cmdstan_model("Stan/smooth_matern_pc_cov.stan")
+
+cat("  Running NUTS (4 chains x 2000 iterations)...\n")
 t0 <- proc.time()
 
 fit <- model$sample(
   data            = stan_data,
   chains          = 4,
   parallel_chains = 4,
-  iter_warmup     = 2000,
-  iter_sampling   = 2000,
+  iter_warmup     = 1000,
+  iter_sampling   = 1000,
   refresh         = 200,
   adapt_delta     = 0.9,
   max_treedepth   = 12,
@@ -158,16 +217,18 @@ fit <- model$sample(
 elapsed <- (proc.time() - t0)[3]
 cat(sprintf("  Stan completed in %.1f seconds (%.1f min)\n", elapsed, elapsed / 60))
 
-# ---- 7. Diagnostics ----
+# ---- 8. Diagnostics ----
 cat("\n  === Stan Diagnostics ===\n")
-cat("  Hyperparameter summary:\n")
-print(fit$summary(c("mu", "sigma_gp", "phi_gp", "nugget")))
+cat("  Beta_psi (covariate effects on GEV location):\n")
+print(fit$summary(c("beta_psi")))
+cat("\n  Intercepts and GP hyperparameters:\n")
+print(fit$summary(c("mu_tau", "mu_phi", "sigma_gp", "phi_gp", "nugget", "nugget_phi")))
 
 diag_summary <- fit$diagnostic_summary()
 cat("\n  Divergences per chain:", diag_summary$num_divergent, "\n")
 cat("  Max treedepth per chain:", diag_summary$num_max_treedepth, "\n")
 
-# ---- 8. Convert to output format ----
+# ---- 9. Convert to output format ----
 cat("\n  Converting output format...\n")
 
 draws <- fit$draws(format = "draws_matrix")
@@ -180,10 +241,16 @@ psi_draws <- as.matrix(draws[, psi_cols])
 tau_draws <- as.matrix(draws[, tau_cols])
 phi_draws <- as.matrix(draws[, phi_cols])
 
-mu_draws       <- as.matrix(draws[, c("mu[1]", "mu[2]", "mu[3]")])
-sigma_gp_draws <- as.matrix(draws[, c("sigma_gp[1]", "sigma_gp[2]", "sigma_gp[3]")])
-phi_gp_draws   <- as.matrix(draws[, c("phi_gp[1]", "phi_gp[2]", "phi_gp[3]")])
-nugget_draws   <- as.matrix(draws[, c("nugget[1]", "nugget[2]", "nugget[3]")])
+beta_psi_cols <- paste0("beta_psi[", 1:n_cov_psi, "]")
+beta_psi_draws <- as.matrix(draws[, beta_psi_cols])
+
+mu_tau_draws    <- as.numeric(draws[, "mu_tau"])
+mu_phi_draws    <- as.numeric(draws[, "mu_phi"])
+nugget_phi_draws <- as.numeric(draws[, "nugget_phi"])
+
+sigma_gp_draws <- as.matrix(draws[, c("sigma_gp[1]", "sigma_gp[2]")])
+phi_gp_draws   <- as.matrix(draws[, c("phi_gp[1]", "phi_gp[2]")])
+nugget_draws   <- as.matrix(draws[, c("nugget[1]", "nugget[2]")])
 
 result <- list(
   psi.selected = psi_draws,
@@ -197,24 +264,37 @@ result <- list(
   tau.posvar  = apply(tau_draws, 2, var),
   phi.posvar  = apply(phi_draws, 2, var),
 
-  beta_psi = mu_draws[, 1],
-  beta_tau = mu_draws[, 2],
-  beta_phi = mu_draws[, 3],
+  # Covariate coefficients for psi (n_draws x n_cov_psi matrix)
+  beta_psi_draws = beta_psi_draws,
+  # Intercepts for tau, phi (vectors of length n_draws)
+  beta_tau = mu_tau_draws,
+  beta_phi = mu_phi_draws,
 
+  # GP hyperparameters (psi, tau only)
   sigma_gp_psi = sigma_gp_draws[, 1],
   sigma_gp_tau = sigma_gp_draws[, 2],
-  sigma_gp_phi = sigma_gp_draws[, 3],
   phi_gp_psi   = phi_gp_draws[, 1],
   phi_gp_tau   = phi_gp_draws[, 2],
-  phi_gp_phi   = phi_gp_draws[, 3],
   nugget_psi   = nugget_draws[, 1],
   nugget_tau   = nugget_draws[, 2],
-  nugget_phi   = nugget_draws[, 3],
 
-  method   = "Matern52_GP_PC_Stan",
+  # Phi: iid noise SD (no GP)
+  nugget_phi   = nugget_phi_draws,
+
+  # Flag: phi has no spatial GP
+  phi_has_gp = FALSE,
+
+  # Covariate standardisation parameters (needed for prediction)
+  cov_standardisation = list(
+    alt_mean = alt_mean, alt_sd = alt_sd,
+    exp_mean = exp_mean, exp_sd = exp_sd
+  ),
+
+  method   = "Matern52_GP_PC_cov_phi_iid_Stan",
   minutes  = elapsed / 60,
   pc_prior_rates = list(lambda_s = lambda_s, lambda_rho = lambda_rho,
-                        lambda_nugget = lambda_nugget),
+                        lambda_nugget = lambda_nugget,
+                        lambda_nugget_phi = lambda_nugget_phi),
   stan_fit = fit
 )
 

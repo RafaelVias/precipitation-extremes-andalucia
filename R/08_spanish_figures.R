@@ -93,7 +93,7 @@ p0 <- ggplot() +
     legend.position = "right"
   )
 
-ggsave("figures/es/station_map.png", p0, width = 12, height = 7, dpi = 200, bg = "white")
+ggsave("figures/es/station_map.png", p0, width = 12, height = 7, dpi = 300, bg = "white")
 cat("  Guardado figures/es/station_map.png\n")
 
 # =============================================================================
@@ -113,39 +113,66 @@ eta_tau_draws <- s2$tau.selected
 eta_phi_draws <- s2$phi.selected
 n_draws <- nrow(eta_psi_draws)
 
-mu_psi_draws <- s2$beta_psi
-mu_tau_draws <- s2$beta_tau
-mu_phi_draws <- s2$beta_phi
+# Covariate model
+beta_psi_draws <- s2$beta_psi_draws   # n_draws x 4
+mu_tau_draws   <- s2$beta_tau
+mu_phi_draws   <- s2$beta_phi
+cov_std        <- s2$cov_standardisation
+
+# phi has no GP — only intercept + iid noise
+phi_has_gp       <- isTRUE(s2$phi_has_gp)
+nugget_phi_draws <- s2$nugget_phi     # length n_draws (iid noise SD)
 
 # =============================================================================
-# Shared prediction grid and kriging
+# Shared prediction grid, covariates, and kriging
 # =============================================================================
-cat("\nCalculando pesos de kriging...\n")
+cat("\nCargando covariables de la malla...\n")
 
-pred_res <- 0.025
-bbox <- st_bbox(andalucia)
-pred_pts <- expand.grid(
-  lon = seq(bbox["xmin"] + pred_res / 2, bbox["xmax"], by = pred_res),
-  lat = seq(bbox["ymin"] + pred_res / 2, bbox["ymax"], by = pred_res)
-)
-pred_sf <- st_as_sf(pred_pts, coords = c("lon", "lat"), crs = 4326)
-inside <- st_intersects(pred_sf, andalucia, sparse = FALSE)[, 1]
-pred_pts <- pred_pts[inside, ]
-n_pred <- nrow(pred_pts)
+grid_cov <- readRDS("data/grid_covariates.rds")
+pred_pts <- data.frame(lon = grid_cov$lon, lat = grid_cov$lat)
+n_pred   <- nrow(pred_pts)
+pred_res <- abs(sort(unique(grid_cov$lon))[2] - sort(unique(grid_cov$lon))[1])
+
+# Station design matrix
+stn_exp <- readRDS("data/station_exposure.rds")
+s1_ids  <- meta$indicativo
+exp_idx <- match(s1_ids, stn_exp$indicativo)
+alt_std_stn <- (stn_exp$alt_dem[exp_idx] - cov_std$alt_mean) / cov_std$alt_sd
+exp_std_stn <- (stn_exp$exposure_mean[exp_idx] - cov_std$exp_mean) / cov_std$exp_sd
+
+# Clausius-Clapeyron attenuation of altitude effect above highest station
+h_peak <- max(stn_exp$alt_dem[exp_idx])
+H_w    <- 2000
+alt_raw_pred <- grid_cov$alt_dem
+above <- pmax(0, alt_raw_pred - h_peak)
+decay <- exp(-above / H_w)
+alt_eff <- ifelse(alt_raw_pred <= h_peak, alt_raw_pred, h_peak + above * decay)
+alt_std_pred <- (alt_eff - cov_std$alt_mean) / cov_std$alt_sd
+
+exp_std_pred <- (grid_cov$exposure_mean - cov_std$exp_mean) / cov_std$exp_sd
+exp_std_pred <- pmin(pmax(exp_std_pred, min(exp_std_stn)), max(exp_std_stn))
+X_stn  <- cbind(1, alt_std_stn, exp_std_stn, alt_std_stn * exp_std_stn)
+X_pred <- cbind(1, alt_std_pred, exp_std_pred, alt_std_pred * exp_std_pred)
+
+cat("Calculando pesos de kriging...\n")
 
 matern52 <- function(d, sigma2, phi) {
   s5 <- sqrt(5) * d / phi
   sigma2 * (1 + s5 + s5^2 / 3) * exp(-s5)
 }
 
-sigma_gp <- c(mean(s2$sigma_gp_psi), mean(s2$sigma_gp_tau), mean(s2$sigma_gp_phi))
-phi_gp   <- c(mean(s2$phi_gp_psi), mean(s2$phi_gp_tau), mean(s2$phi_gp_phi))
-nugget_v <- c(mean(s2$nugget_psi), mean(s2$nugget_tau), mean(s2$nugget_phi))
+# GP hyperparameters (posterior means) — only for psi and tau
+sigma_gp <- c(mean(s2$sigma_gp_psi), mean(s2$sigma_gp_tau))
+phi_gp   <- c(mean(s2$phi_gp_psi), mean(s2$phi_gp_tau))
+nugget_v <- c(mean(s2$nugget_psi), mean(s2$nugget_tau))
 
 dist_ss <- as.matrix(dist(loc))
-dist_pg <- as.matrix(
-  dist(rbind(as.matrix(pred_pts), as.matrix(data.frame(lon = loc[, "lon"], lat = loc[, "lat"]))))
-)[1:n_pred, (n_pred + 1):(n_pred + ns)]
+# Compute prediction-to-station distances directly (avoids huge intermediate matrix)
+dist_pg <- matrix(0, n_pred, ns)
+for (j in seq_len(ns)) {
+  dist_pg[, j] <- sqrt((pred_pts$lon - loc[j, "lon"])^2 +
+                        (pred_pts$lat - loc[j, "lat"])^2)
+}
 
 compute_kriging <- function(k) {
   sig2 <- sigma_gp[k]^2
@@ -161,24 +188,42 @@ compute_kriging <- function(k) {
   list(W = W, cond_sd = sqrt(cond_var))
 }
 
-krig <- lapply(1:3, compute_kriging)
+krig <- lapply(1:2, compute_kriging)  # only psi and tau
 
-resid_psi <- sweep(eta_psi_draws, 1, mu_psi_draws, "-")
+# GP residuals
+mean_psi_at_stations <- beta_psi_draws %*% t(X_stn)
+resid_psi <- eta_psi_draws - mean_psi_at_stations
 resid_tau <- sweep(eta_tau_draws, 1, mu_tau_draws, "-")
-resid_phi <- sweep(eta_phi_draws, 1, mu_phi_draws, "-")
+# phi: no GP residuals (iid noise, not spatially correlated)
 
 predict_at <- function(idx) {
   nc <- length(idx)
-  predict_param <- function(k, resid, mu_draws) {
-    W_ch <- krig[[k]]$W[idx, , drop = FALSE]
-    sd_ch <- matrix(krig[[k]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
-    pred <- sweep(t(W_ch %*% t(resid)), 1, mu_draws, "+")
+  # psi: covariate mean + kriged GP + noise
+  predict_psi_cov <- function() {
+    W_ch <- krig[[1]]$W[idx, , drop = FALSE]
+    sd_ch <- matrix(krig[[1]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
+    kriged <- t(W_ch %*% t(resid_psi))
+    mean_pred <- beta_psi_draws %*% t(X_pred[idx, , drop = FALSE])
+    pred <- mean_pred + kriged
     pred + matrix(rnorm(n_draws * nc), n_draws, nc) * sd_ch
   }
+  # tau: scalar intercept + kriged GP + noise
+  predict_tau <- function() {
+    W_ch <- krig[[2]]$W[idx, , drop = FALSE]
+    sd_ch <- matrix(krig[[2]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
+    pred <- sweep(t(W_ch %*% t(resid_tau)), 1, mu_tau_draws, "+")
+    pred + matrix(rnorm(n_draws * nc), n_draws, nc) * sd_ch
+  }
+  # phi: intercept + iid noise (no spatial kriging)
+  predict_phi_iid <- function() {
+    noise_sd <- matrix(nugget_phi_draws, nrow = n_draws, ncol = nc)
+    sweep(matrix(rnorm(n_draws * nc), n_draws, nc) * noise_sd,
+          1, mu_phi_draws, "+")
+  }
   list(
-    psi = predict_param(1, resid_psi, mu_psi_draws),
-    tau = predict_param(2, resid_tau, mu_tau_draws),
-    phi = predict_param(3, resid_phi, mu_phi_draws)
+    psi = predict_psi_cov(),
+    tau = predict_tau(),
+    phi = predict_phi_iid()
   )
 }
 
@@ -220,7 +265,7 @@ grid_df <- do.call(rbind, grid_list)
 rl_min <- min(grid_df$rl_mean); rl_max <- max(grid_df$rl_mean)
 alarm_thresholds <- c(80, 120)
 alarm_colours <- c("#FF8C00", "red")
-legend_breaks <- seq(40, 200, by = 20)
+legend_breaks <- seq(0, ceiling(rl_max / 50) * 50, by = 50)
 
 make_rl_panel <- function(rp_val) {
   g_sub <- grid_df[grid_df$rp == rp_val, ]
@@ -234,25 +279,6 @@ make_rl_panel <- function(rp_val) {
               width = pred_res, height = pred_res) +
     scale_fill_viridis_c(option = "B", name = "mm",
                          limits = c(rl_min, rl_max), breaks = legend_breaks)
-
-  mid_lon <- mean(range(g_sub$lon)); mid_lat <- mean(range(g_sub$lat))
-  for (i in seq_along(alarm_thresholds)) {
-    thr <- alarm_thresholds[i]
-    if (thr > data_range[1] && thr < data_range[2]) {
-      p <- p + geom_contour(data = g_sub, aes(x = lon, y = lat, z = rl_mean),
-                             breaks = thr, colour = "white", linewidth = 0.3, alpha = 0.85)
-      diffs <- abs(g_sub$rl_mean - thr)
-      candidates <- which(diffs < quantile(diffs, 0.01))
-      if (length(candidates) == 0) candidates <- which.min(diffs)
-      dist_center <- (g_sub$lon[candidates] - mid_lon)^2 + (g_sub$lat[candidates] - mid_lat)^2
-      best <- candidates[which.min(dist_center)]
-      lbl <- data.frame(lon = g_sub$lon[best], lat = g_sub$lat[best], label = thr)
-      p <- p + geom_label(data = lbl, aes(x = lon, y = lat, label = label),
-                           size = 1.8, fill = alarm_colours[i], colour = "white",
-                           fontface = "bold", label.padding = unit(0.15, "lines"),
-                           label.r = unit(0.1, "lines"))
-    }
-  }
 
   p + geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
     labs(title = paste0("Nivel de retorno a ", rp_val, " a\u00f1os")) +
@@ -275,7 +301,7 @@ p_rl <- make_rl_panel(10) + make_rl_panel(20) + make_rl_panel(50) + make_rl_pane
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 8.5, dpi = 200, bg = "white")
+ggsave("figures/es/return_level_maps.png", p_rl, width = 14, height = 8.5, dpi = 300, bg = "white")
 cat("  Guardado figures/es/return_level_maps.png\n")
 
 # SD panel
@@ -313,7 +339,7 @@ p_rl_sd <- make_rl_sd_panel(10) + make_rl_sd_panel(20) + make_rl_sd_panel(50) + 
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/return_level_maps_sd.png", p_rl_sd, width = 14, height = 8.5, dpi = 200, bg = "white")
+ggsave("figures/es/return_level_maps_sd.png", p_rl_sd, width = 14, height = 8.5, dpi = 300, bg = "white")
 cat("  Guardado figures/es/return_level_maps_sd.png\n")
 
 # =============================================================================
@@ -376,25 +402,6 @@ make_exc_panel <- function(thr_val, hor_val) {
     scale_fill_viridis_c(option = "B", name = "prob",
                          limits = c(0, 1), oob = scales::squish)
 
-  data_range <- range(g_sub$prob_mean, na.rm = TRUE)
-  contour_breaks <- c(0.25, 0.5, 0.75)
-  valid_breaks <- contour_breaks[contour_breaks > data_range[1] & contour_breaks < data_range[2]]
-  if (length(valid_breaks) > 0) {
-    p <- p + geom_contour(data = g_sub, aes(x = lon, y = lat, z = prob_mean),
-                           breaks = valid_breaks, colour = "white", linewidth = 0.3, alpha = 0.85)
-    mid_lon <- mean(range(g_sub$lon)); mid_lat <- mean(range(g_sub$lat))
-    label_df <- do.call(rbind, lapply(valid_breaks, function(lev) {
-      diffs <- abs(g_sub$prob_mean - lev)
-      candidates <- which(diffs < quantile(diffs, 0.01))
-      if (length(candidates) == 0) candidates <- which.min(diffs)
-      dist_center <- (g_sub$lon[candidates] - mid_lon)^2 + (g_sub$lat[candidates] - mid_lat)^2
-      best <- candidates[which.min(dist_center)]
-      data.frame(lon = g_sub$lon[best], lat = g_sub$lat[best], label = lev)
-    }))
-    p <- p + geom_text(data = label_df, aes(x = lon, y = lat, label = label),
-                        size = 1.8, colour = "white", fontface = "bold")
-  }
-
   p + geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
     labs(title = title) +
     coord_sf(xlim = c(-7.8, -1.4), ylim = c(35.9, 38.8)) +
@@ -420,7 +427,7 @@ p_exc <- (panels_es[[1]] + panels_es[[2]] + panels_es[[3]]) /
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/exceedance_prob.png", p_exc, width = 16, height = 10, dpi = 200, bg = "white")
+ggsave("figures/es/exceedance_prob.png", p_exc, width = 16, height = 10, dpi = 300, bg = "white")
 cat("  Guardado figures/es/exceedance_prob.png\n")
 
 # SD panel
@@ -463,7 +470,7 @@ p_exc_sd <- (panels_sd_es[[1]] + panels_sd_es[[2]] + panels_sd_es[[3]]) /
                   plot.margin = margin(2, 2, 2, 2))
   )
 
-ggsave("figures/es/exceedance_prob_sd.png", p_exc_sd, width = 16, height = 10, dpi = 200, bg = "white")
+ggsave("figures/es/exceedance_prob_sd.png", p_exc_sd, width = 16, height = 10, dpi = 300, bg = "white")
 cat("  Guardado figures/es/exceedance_prob_sd.png\n")
 
 # =============================================================================
@@ -556,7 +563,7 @@ p_diag <- (plots_es[[1]] + plots_es[[2]] + plots_es[[3]]) /
   theme(legend.position = "bottom")
 
 ggsave("figures/es/station_return_level_curves.png",
-       p_diag, width = 16, height = 10, dpi = 200, bg = "white")
+       p_diag, width = 16, height = 10, dpi = 300, bg = "white")
 cat("  Guardado figures/es/station_return_level_curves.png\n")
 
 cat("\n========================================\n")

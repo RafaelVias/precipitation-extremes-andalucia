@@ -174,7 +174,7 @@ p_all <- (plots[[1]] + plots[[2]] + plots[[3]]) /
   theme(legend.position = "bottom")
 
 ggsave("figures/station_return_level_curves.png",
-       p_all, width = 16, height = 10, dpi = 200, bg = "white")
+       p_all, width = 16, height = 10, dpi = 300, bg = "white")
 
 cat("Saved figures/station_return_level_curves.png\n")
 cat("========================================\n")

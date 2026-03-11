@@ -45,13 +45,31 @@ At each station, a Poisson point process (PPP) likelihood is maximised over dail
 
 A parametric bootstrap (1000 replicates per station) provides per-station 3 × 3 covariance matrices $\hat{\Sigma}_i$ for the surrogate Gaussian likelihood used in Stage 2. Exceedances are simulated from the fitted PPP model and re-estimated, yielding empirical covariances of the MLE across replicates.
 
-### Stage 2 — Spatial smoothing
+### Stage 2 — Spatial smoothing with covariates
 
-The Stage 1 estimates $\hat{\eta}_i = (\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)$ are treated as noisy observations of a latent spatial field. For each of the three GEV parameters, an independent Gaussian process prior is placed on the latent values:
+The Stage 1 estimates $\hat{\eta}_i = (\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)$ are treated as noisy observations of a latent spatial field. Following Hazra, Huser & Jóhannesson (2023, Ch. 7), the three reparametrised GEV parameters receive different spatial structures:
 
-$$\eta_k \sim \text{GP}(\mu_k, C_k)$$
+$$\eta_\psi(s) = \mathbf{x}(s)^\top \boldsymbol{\beta}_\psi + f_\psi(s)$$
+$$\eta_\tau(s) = \mu_\tau + f_\tau(s)$$
+$$\eta_\phi(s) = \mu_\phi + \nu_\phi \, z(s), \quad z(s) \sim \mathcal{N}(0, 1)$$
 
-with a Matérn covariance of smoothness 5/2:
+The **location parameter** $\psi$ includes covariates and a spatial GP; the **scale ratio** $\tau$ has an intercept and spatial GP; the **shape parameter** $\phi$ has only an intercept plus independent (iid) noise, reflecting the negligible spatial structure observed in empirical variograms of $\hat{\phi}$.
+
+#### Covariates on location ($\psi$)
+
+The design matrix $\mathbf{X}$ includes an intercept and three covariates derived from SRTM elevation data:
+
+| Covariate | Description |
+|-----------|-------------|
+| Altitude (DEM) | Elevation from SRTM 90 m DEM, standardised |
+| Windward exposure | Mean orographic exposure from Mediterranean SE (135°) and Atlantic WSW (255°) wind directions, computed over 20 km transects |
+| Altitude × Exposure | Interaction capturing enhanced orographic precipitation at elevated exposed sites |
+
+Altitude and exposure are standardised to zero mean and unit variance at the station locations. Windward exposure at each station is computed as the difference between the station's elevation and the mean elevation along a 20 km upwind transect sampled from the DEM (see `R/10_dem_exposure.R`).
+
+#### Matérn(5/2) Gaussian process
+
+The spatial random effects $f_\psi$ and $f_\tau$ each receive an independent Matérn(5/2) GP prior:
 
 $$C_k(d) = \sigma_k^2 \left(1 + \frac{\sqrt{5} d}{\rho_k} + \frac{5 d^2}{3 \rho_k^2}\right) \exp\left(-\frac{\sqrt{5} d}{\rho_k}\right)$$
 
@@ -67,11 +85,11 @@ which decouples the computationally expensive per-station PPP fits from the spat
 
 #### Non-centered parameterisation
 
-To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$.
+To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$. The shape parameter uses an analogous non-centered form: $\eta_\phi = \mu_\phi + \nu_\phi z$ with $z \sim \mathcal{N}(0, I)$.
 
 #### Penalised complexity priors
 
-Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors calibrated as:
+Following Fuglstad et al. (2019), the GP hyperparameters for $\psi$ and $\tau$ receive PC priors calibrated as:
 
 | Parameter | Prior | Calibration |
 |-----------|-------|-------------|
@@ -79,25 +97,49 @@ Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors calib
 | $\rho_k$ (range) | PC prior on range | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ |
 | $\nu_k$ (nugget SD) | Exponential | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ |
 
-The intercepts receive vague priors: $\mu_k \sim \mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 2000 iterations (1000 warmup), `adapt_delta = 0.9`.
+The iid noise standard deviation for $\phi$ receives the same exponential prior: $P(\nu_\phi > 0.5) = 0.05$. Covariate coefficients $\boldsymbol{\beta}_\psi$ receive vague priors $\mathcal{N}(0, 10^2)$; the intercepts $\mu_\tau$ and $\mu_\phi$ receive $\mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 1000 iterations (1000 warmup), `adapt_delta = 0.9`.
 
 ### Prediction
 
-Return levels and exceedance probabilities at unobserved locations are obtained from the **conditional distribution of the Matérn GP**. The GP hyperparameters $(\hat{\sigma}_k, \hat{\rho}_k, \hat{\nu}_k)$ are fixed at their posterior means to compute the conditional moments at a prediction location $s^*$:
+Return levels and exceedance probabilities at unobserved locations are obtained by **sampling from the posterior predictive distribution** of the conditional GP. For each posterior draw, the predicted GEV parameters at a new location $s^*$ combine a covariate-driven mean with a spatially interpolated GP residual.
 
-$$\eta_k(s^*) \mid \eta_k \sim \mathcal{N}(\mu_{\text{cond}}, \sigma^2_{\text{cond}})$$
+#### Covariate component
+
+At each grid point, altitude and windward exposure are extracted from the DEM and used to form the prediction design matrix $\mathbf{X}(s^*)$. The covariate contribution to $\psi$ is $\mathbf{x}(s^*)^\top \boldsymbol{\beta}_\psi$, where $\boldsymbol{\beta}_\psi$ varies across posterior draws.
+
+#### Clausius-Clapeyron altitude attenuation
+
+The station network extends up to approximately 1500 m elevation, but grid points reach the summit of Mulhacén (3479 m). Below the highest station, the DEM altitude enters the design matrix directly. Above it, the altitude effect is attenuated using the **Clausius-Clapeyron moisture decay**:
+
+$$h_{\text{eff}}(h) = \begin{cases} h & h \le h_{\text{peak}} \\ h_{\text{peak}} + (h - h_{\text{peak}}) \cdot \exp\!\left(-\frac{h - h_{\text{peak}}}{H_w}\right) & h > h_{\text{peak}} \end{cases}$$
+
+where $h_{\text{peak}}$ is the altitude of the highest station and $H_w = 2000$ m is the atmospheric moisture scale height. This reflects the physical constraint that precipitable water decreases approximately exponentially with altitude, so the orographic enhancement of daily precipitation extremes — which Formetta et al. (2022) estimate at 7.5–10% per 1000 m for durations ≥ 8 h — must taper above the data range.
+
+#### Spatial GP component
+
+The GP hyperparameters $(\hat{\sigma}_k, \hat{\rho}_k, \hat{\nu}_k)$ are fixed at their posterior means to compute the conditional distribution of the GP residuals at $s^*$:
+
+$$f_k(s^*) \mid f_k \sim \mathcal{N}(\mu_{\text{cond}}, \sigma^2_{\text{cond}})$$
 
 where
 
-$$\mu_{\text{cond}} = \mu_k + \gamma_k^\top \Sigma_k^{-1} (\eta_k - \mu_k), \qquad \sigma^2_{\text{cond}} = \sigma_k^2 - \gamma_k^\top \Sigma_k^{-1} \gamma_k$$
+$$\mu_{\text{cond}} = \boldsymbol{\gamma}_k^\top \boldsymbol{\Sigma}_k^{-1} \mathbf{f}_k, \qquad \sigma^2_{\text{cond}} = \sigma_k^2 - \boldsymbol{\gamma}_k^\top \boldsymbol{\Sigma}_k^{-1} \boldsymbol{\gamma}_k$$
 
-with $\gamma_k$ the cross-covariance vector between $s^*$ and the stations, and $\Sigma_k$ the station-station covariance matrix (including nugget). For each posterior draw of the latent field $\eta_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\text{cond}}$ is fully propagated into the posterior predictive return levels. Predictions are computed on a 0.025° grid across Andalucía.
+with $\boldsymbol{\gamma}_k$ the cross-covariance vector between $s^*$ and the stations, and $\boldsymbol{\Sigma}_k$ the station-station covariance matrix (including nugget). For each posterior draw of the station-level residuals $\mathbf{f}_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\text{cond}}$ is fully propagated into the posterior predictive GEV parameters.
+
+#### Shape parameter ($\phi$)
+
+Since $\phi$ has no spatial GP, predictions at new locations are drawn from the intercept plus iid noise: $\eta_\phi(s^*) = \mu_\phi + \nu_\phi \, z$, $z \sim \mathcal{N}(0, 1)$, independently at each grid point.
+
+#### Grid
+
+Predictions are computed on a 0.005° (~500 m) grid across Andalucía. Grid-level altitude and windward exposure are precomputed from the SRTM DEM (`R/11_grid_covariates.R`).
 
 ## Results
 
 ### Return level maps
 
-Posterior mean return levels at *T* = 10, 20, 50, and 100 years, interpolated across Andalucía on a 0.025° grid. White contour lines mark AEMET alarm thresholds (80 and 120 mm).
+Posterior mean return levels at *T* = 10, 20, 50, and 100 years, interpolated across Andalucía on a 0.005° grid.
 
 ![Return level maps](figures/return_level_maps.png)
 
@@ -125,7 +167,7 @@ Return level curves at 6 selected stations. Points show observed annual maxima (
 
 - **R** (≥ 4.2)
 - **Stan**: [CmdStan](https://mc-stan.org/cmdstanr/) (≥ 2.33)
-- **R packages**: cmdstanr, bayesplot, ggplot2, patchwork, sf, rnaturalearth, rnaturalearthdata, dplyr, lubridate, Matrix, climaemet
+- **R packages**: cmdstanr, bayesplot, ggplot2, patchwork, sf, terra, rnaturalearth, rnaturalearthdata, dplyr, lubridate, Matrix, climaemet
 
 ## Pipeline
 
@@ -135,7 +177,9 @@ Pre-computed results are in `data/stage1_results.rds` and `data/stage2_matern_pc
 Rscript R/00_station_map.R          # Station network map (Figure 0)
 Rscript R/01_acquire_data.R         # Download AEMET daily precipitation
 Rscript R/02_stage1_mle.R           # Stage 1: per-station PPP GEV MLEs (~10 min)
-Rscript R/03_stage2_smooth.R        # Stage 2: spatial GP smoothing in Stan (~18 min)
+Rscript R/10_dem_exposure.R         # DEM download + station windward exposure
+Rscript R/03_stage2_smooth.R        # Stage 2: spatial GP smoothing in Stan (~45 min)
+Rscript R/11_grid_covariates.R      # Precompute altitude + exposure on prediction grid
 Rscript R/04_return_level_maps.R    # Return level maps (Figure 1)
 Rscript R/05_exceedance_maps.R      # Exceedance probability maps (Figure 2)
 Rscript R/06_station_diagnostics.R  # Station return level curves (Figure 3)
@@ -150,6 +194,8 @@ Rscript R/08_spanish_figures.R      # Figuras en español (figures/es/)
 - Hazra, A., Huser, R. & Jóhannesson, Á. V. (2023). Bayesian spatial modelling of extreme precipitation return levels. In: Hrafnkelsson, B. (ed.) *Bayesian Latent Gaussian Models*. Chapman & Hall/CRC, Ch. 7. [doi:10.1007/978-3-031-39791-2_7](https://doi.org/10.1007/978-3-031-39791-2_7)
 
 - Fuglstad, G.-A., Simpson, D., Lindgren, F. & Rue, H. (2019). Constructing priors that penalize the complexity of Gaussian random fields. *Journal of the American Statistical Association*, 114(525), 445–452. [doi:10.1080/01621459.2017.1415907](https://doi.org/10.1080/01621459.2017.1415907)
+
+- Formetta, G., Marra, F. & Dallan, E. (2022). Modelling the dependence between short-duration precipitation intensity and duration as a function of altitude. *International Journal of Climatology*, 42, 3268–3282. [doi:10.1002/joc.7418](https://doi.org/10.1002/joc.7418)
 
 - Carpenter, B. et al. (2017). Stan: A probabilistic programming language. *Journal of Statistical Software*, 76(1). [doi:10.18637/jss.v076.i01](https://doi.org/10.18637/jss.v076.i01)
 
