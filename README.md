@@ -111,7 +111,7 @@ At each grid point, altitude and windward exposure are extracted from the DEM an
 
 The station network extends up to approximately 1500 m elevation, but grid points reach the summit of Mulhacén (3479 m). Below the highest station, the DEM altitude enters the design matrix directly. Above it, the altitude effect is attenuated using the **Clausius-Clapeyron moisture decay**:
 
-$$h_{\text{eff}}(h) = \begin{cases} h & h \le h_{\text{peak}} \\ h_{\text{peak}} + (h - h_{\text{peak}}) \cdot \exp\!\left(-\frac{h - h_{\text{peak}}}{H_w}\right) & h > h_{\text{peak}} \end{cases}$$
+$$h_{\text{eff}}(h) = \begin{cases} h, & \text{if } h \le h_{\text{peak}} \\ h_{\text{peak}} + (h - h_{\text{peak}}) \cdot \exp\left(-\dfrac{h - h_{\text{peak}}}{H_w}\right), & \text{if } h > h_{\text{peak}} \end{cases}$$
 
 where $h_{\text{peak}}$ is the altitude of the highest station and $H_w = 2000$ m is the atmospheric moisture scale height. This reflects the physical constraint that precipitable water decreases approximately exponentially with altitude, so the orographic enhancement of daily precipitation extremes — which Formetta et al. (2022) estimate at 7.5–10% per 1000 m for durations ≥ 8 h — must taper above the data range.
 
