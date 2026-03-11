@@ -43,11 +43,11 @@ con constantes $c = 0.8$, $a$ y $b$ elegidos para que $h(0) \approx 0$. Esto ase
 
 En cada estación se maximiza una verosimilitud de proceso puntual de Poisson (PPP) sobre las observaciones diarias que superan un umbral específico por estación (el percentil 75 de la precipitación positiva). La optimización multi-inicio con cinco valores iniciales de forma evita óptimos locales, prefiriendo soluciones interiores ($\xi$ lejos de los límites) para asegurar hessianos fiables.
 
-Un bootstrap paramétrico (1000 réplicas por estación) proporciona matrices de covarianza 3 × 3 por estación $\hat{\Sigma}_i$ para la verosimilitud sustituta gaussiana de la Etapa 2. Se simulan excedencias del modelo PPP ajustado y se re-estiman, obteniendo las covarianzas empíricas del EMV entre réplicas.
+Un bootstrap paramétrico (1000 réplicas por estación) proporciona matrices de covarianza 3 × 3 por estación $\hat\Sigma_i$ para la verosimilitud sustituta gaussiana de la Etapa 2. Se simulan excedencias del modelo PPP ajustado y se re-estiman, obteniendo las covarianzas empíricas del EMV entre réplicas.
 
 ### Etapa 2 — Suavizado espacial
 
-Las estimaciones de la Etapa 1 $\hat{\eta}_i = (\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)$ se tratan como observaciones ruidosas de un campo espacial latente. Para cada uno de los tres parámetros GEV, se coloca un prior de proceso gaussiano independiente sobre los valores latentes:
+Las estimaciones de la Etapa 1 $\hat\eta_i = (\hat\psi_i, \hat\tau_i, \hat\phi_i)$ se tratan como observaciones ruidosas de un campo espacial latente. Para cada uno de los tres parámetros GEV, se coloca un prior de proceso gaussiano independiente sobre los valores latentes:
 
 $$\eta_k \sim \text{GP}(\mu_k, C_k)$$
 
@@ -59,7 +59,7 @@ donde $d$ es la distancia entre estaciones (en grados), $\sigma_k$ es la desviac
 
 #### Verosimilitud sustituta
 
-Las covarianzas bootstrap de la Etapa 1 forman una matriz de precisión diagonal por bloques $Q$ con bloques 3 × 3 $\hat{\Sigma}_i^{-1}$. La verosimilitud sustituta es
+Las covarianzas bootstrap de la Etapa 1 forman una matriz de precisión diagonal por bloques $Q$ con bloques 3 × 3 $\hat\Sigma_i^{-1}$. La verosimilitud sustituta es
 
 $$\hat{\eta} \mid \eta \sim \mathcal{N}(\eta, Q^{-1})$$
 
@@ -79,11 +79,11 @@ Siguiendo a Fuglstad et al. (2019), los hiperparámetros del GP reciben priors P
 | $\rho_k$ (rango) | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ | $P(\rho < 0.5°) = 0.05 \Rightarrow \lambda_\rho = 1.50$ |
 | $\nu_k$ (DE nugget) | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ | $P(\nu > 0.3) = 0.05 \Rightarrow \lambda_\nu = 10.0$ |
 
-Los coeficientes de covariables $\boldsymbol{\beta}_\psi$ reciben priors vagos $\mathcal{N}(0, 10^2)$; los interceptos $\mu_\tau$ y $\mu_\phi$ reciben $\mathcal{N}(0, 100^2)$. El modelo se ajusta conjuntamente en Stan (Carpenter et al., 2017) usando NUTS con 4 cadenas × 2000 iteraciones (1000 calentamiento), `adapt_delta = 0.9`.
+Los coeficientes de covariables $\boldsymbol\beta_\psi$ reciben priors vagos $\mathcal{N}(0, 10^2)$; los interceptos $\mu_\tau$ y $\mu_\phi$ reciben $\mathcal{N}(0, 100^2)$. El modelo se ajusta conjuntamente en Stan (Carpenter et al., 2017) usando NUTS con 4 cadenas × 2000 iteraciones (1000 calentamiento), `adapt_delta = 0.9`.
 
 ### Predicción
 
-Los niveles de retorno y las probabilidades de excedencia en ubicaciones no observadas se obtienen de la **distribución condicional del GP Matérn**. Los hiperparámetros del GP $(\hat{\sigma}_k, \hat{\rho}_k, \hat{\nu}_k)$ se fijan en sus medias a posteriori para calcular los momentos condicionales en una ubicación de predicción $s^*$:
+Los niveles de retorno y las probabilidades de excedencia en ubicaciones no observadas se obtienen de la **distribución condicional del GP Matérn**. Los hiperparámetros del GP $(\hat\sigma_k, \hat\rho_k, \hat\nu_k)$ se fijan en sus medias a posteriori para calcular los momentos condicionales en una ubicación de predicción $s^*$:
 
 $$\eta_k(s^*) \mid \eta_k \sim \mathcal{N}(\mu_{\text{cond}}, \sigma^2_{\text{cond}})$$
 

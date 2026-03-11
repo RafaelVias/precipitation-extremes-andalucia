@@ -43,11 +43,11 @@ with constants $c = 0.8$, $a$ and $b$ chosen so that $h(0) \approx 0$. This ensu
 
 At each station, a Poisson point process (PPP) likelihood is maximised over daily observations exceeding a site-specific threshold (the 75th percentile of positive precipitation). Multi-start optimisation over five initial shape values avoids local optima, with interior solutions ($\xi$ away from the bounds) preferred over boundary solutions to ensure reliable Hessians.
 
-A parametric bootstrap (1000 replicates per station) provides per-station 3 × 3 covariance matrices $\hat{\Sigma}_i$ for the surrogate Gaussian likelihood used in Stage 2. Exceedances are simulated from the fitted PPP model and re-estimated, yielding empirical covariances of the MLE across replicates.
+A parametric bootstrap (1000 replicates per station) provides per-station 3 × 3 covariance matrices $\hat\Sigma_i$ for the surrogate Gaussian likelihood used in Stage 2. Exceedances are simulated from the fitted PPP model and re-estimated, yielding empirical covariances of the MLE across replicates.
 
 ### Stage 2 — Spatial smoothing with covariates
 
-The Stage 1 estimates $\hat{\eta}_i = (\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)$ are treated as noisy observations of a latent spatial field. Following Hazra, Huser & Jóhannesson (2023, Ch. 7), the three reparametrised GEV parameters receive different spatial structures:
+The Stage 1 estimates $\hat\eta_i = (\hat\psi_i, \hat\tau_i, \hat\phi_i)$ are treated as noisy observations of a latent spatial field. Following Hazra, Huser & Jóhannesson (2023, Ch. 7), the three reparametrised GEV parameters receive different spatial structures:
 
 $$\eta_\psi(s) = \mathbf{x}(s)^\top \boldsymbol{\beta}_\psi + f_\psi(s)$$
 $$\eta_\tau(s) = \mu_\tau + f_\tau(s)$$
@@ -77,7 +77,7 @@ where $d$ is inter-station distance (in degrees), $\sigma_k$ is the marginal sta
 
 #### Surrogate likelihood
 
-The Stage 1 bootstrap covariances form a block-diagonal precision matrix $Q$ with 3 × 3 blocks $\hat{\Sigma}_i^{-1}$. The surrogate likelihood is
+The Stage 1 bootstrap covariances form a block-diagonal precision matrix $Q$ with 3 × 3 blocks $\hat\Sigma_i^{-1}$. The surrogate likelihood is
 
 $$\hat{\eta} \mid \eta \sim \mathcal{N}(\eta, Q^{-1})$$
 
@@ -97,7 +97,7 @@ Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors. The 
 | $\rho_k$ (range) | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ | $P(\rho < 0.5°) = 0.05 \Rightarrow \lambda_\rho = 1.50$ |
 | $\nu_k$ (nugget SD) | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ | $P(\nu > 0.3) = 0.05 \Rightarrow \lambda_\nu = 10.0$ |
 
-Covariate coefficients $\boldsymbol{\beta}_\psi$ receive vague priors $\mathcal{N}(0, 10^2)$; the intercepts $\mu_\tau$ and $\mu_\phi$ receive $\mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 1000 iterations (1000 warmup), `adapt_delta = 0.9`.
+Covariate coefficients $\boldsymbol\beta_\psi$ receive vague priors $\mathcal{N}(0, 10^2)$; the intercepts $\mu_\tau$ and $\mu_\phi$ receive $\mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 1000 iterations (1000 warmup), `adapt_delta = 0.9`.
 
 ### Prediction
 
@@ -105,19 +105,21 @@ Return levels and exceedance probabilities at unobserved locations are obtained 
 
 #### Covariate component
 
-At each grid point, altitude and windward exposure are extracted from the DEM and used to form the prediction design matrix $\mathbf{X}(s^*)$. The covariate contribution to $\psi$ is $\mathbf{x}(s^*)^\top \boldsymbol{\beta}_\psi$, where $\boldsymbol{\beta}_\psi$ varies across posterior draws.
+At each grid point, altitude and windward exposure are extracted from the DEM and used to form the prediction design matrix $\mathbf X(s^\ast)$. The covariate contribution to $\psi$ is $\mathbf x(s^\ast)^\top \boldsymbol\beta_\psi$, where $\boldsymbol\beta_\psi$ varies across posterior draws.
 
 #### Clausius-Clapeyron altitude attenuation
 
 The station network extends up to approximately 1500 m elevation, but grid points reach the summit of Mulhacén (3479 m). Below the highest station, the DEM altitude enters the design matrix directly. Above it, the altitude effect is attenuated using the **Clausius-Clapeyron moisture decay**:
 
-$$h_{\text{eff}}(h) = \begin{cases} h, & \text{if } h \le h_{\text{peak}} \\ h_{\text{peak}} + (h - h_{\text{peak}}) \cdot \exp\left(-\dfrac{h - h_{\text{peak}}}{H_w}\right), & \text{if } h > h_{\text{peak}} \end{cases}$$
+```math
+h_{\text{eff}}(h) = \begin{cases} h, & \text{if } h \le h_{\text{peak}} \\ h_{\text{peak}} + (h - h_{\text{peak}}) \cdot \exp\!\left(-\dfrac{h - h_{\text{peak}}}{H_w}\right), & \text{if } h > h_{\text{peak}} \end{cases}
+```
 
 where $h_{\text{peak}}$ is the altitude of the highest station and $H_w = 2000$ m is the atmospheric moisture scale height. This reflects the physical constraint that precipitable water decreases approximately exponentially with altitude, so the orographic enhancement of daily precipitation extremes — which Formetta et al. (2022) estimate at 7.5–10% per 1000 m for durations ≥ 8 h — must taper above the data range.
 
 #### Spatial GP component
 
-The GP hyperparameters $(\hat{\sigma}_k, \hat{\rho}_k, \hat{\nu}_k)$ are fixed at their posterior means to compute the conditional distribution of the GP residuals at $s^*$:
+The GP hyperparameters $(\hat\sigma_k, \hat\rho_k, \hat\nu_k)$ are fixed at their posterior means to compute the conditional distribution of the GP residuals at $s^*$:
 
 $$f_k(s^*) \mid f_k \sim \mathcal{N}(\mu_{\text{cond}}, \sigma^2_{\text{cond}})$$
 
@@ -125,7 +127,7 @@ where
 
 $$\mu_{\text{cond}} = \boldsymbol{\gamma}_k^\top \boldsymbol{\Sigma}_k^{-1} \mathbf{f}_k, \qquad \sigma^2_{\text{cond}} = \sigma_k^2 - \boldsymbol{\gamma}_k^\top \boldsymbol{\Sigma}_k^{-1} \boldsymbol{\gamma}_k$$
 
-with $\boldsymbol{\gamma}_k$ the cross-covariance vector between $s^*$ and the stations, and $\boldsymbol{\Sigma}_k$ the station-station covariance matrix (including nugget). For each posterior draw of the station-level residuals $\mathbf{f}_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\text{cond}}$ is fully propagated into the posterior predictive GEV parameters.
+with $\boldsymbol\gamma_k$ the cross-covariance vector between $s^\ast$ and the stations, and $\boldsymbol\Sigma_k$ the station-station covariance matrix (including nugget). For each posterior draw of the station-level residuals $\mathbf f_k$, a prediction is **sampled** from this conditional distribution, so the interpolation uncertainty $\sigma^2_{\text{cond}}$ is fully propagated into the posterior predictive GEV parameters.
 
 #### Shape parameter ($\phi$)
 
