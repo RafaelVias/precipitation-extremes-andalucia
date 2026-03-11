@@ -71,15 +71,15 @@ Para mejorar la eficiencia del muestreo HMC, el GP se parametriza como $\eta_k =
 
 #### Priors de complejidad penalizada
 
-Siguiendo a Fuglstad et al. (2019), los hiperparámetros del GP reciben priors PC calibrados como:
+Siguiendo a Fuglstad et al. (2019), los hiperparámetros del GP reciben priors PC. Los GPs de $\psi$ y $\tau$ comparten una calibración; el GP de $\phi$ recibe priors más estrictos que reflejan la menor variación espacial del parámetro de forma:
 
-| Parámetro | Prior | Calibración |
-|-----------|-------|-------------|
-| $\sigma_k$ (DE marginal) | Exponencial | $P(\sigma > 1) = 0.05 \Rightarrow \lambda_\sigma = 3.0$ |
-| $\rho_k$ (rango) | Prior PC sobre rango | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ |
-| $\nu_k$ (DE nugget) | Exponencial | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ |
+| Parámetro | $\psi$, $\tau$ | $\phi$ |
+|-----------|----------------|--------|
+| $\sigma_k$ (DE marginal) | $P(\sigma > 1) = 0.05 \Rightarrow \lambda_\sigma = 3.0$ | $P(\sigma > 0.3) = 0.05 \Rightarrow \lambda_\sigma = 10.0$ |
+| $\rho_k$ (rango) | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ | $P(\rho < 0.5°) = 0.05 \Rightarrow \lambda_\rho = 1.50$ |
+| $\nu_k$ (DE nugget) | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ | $P(\nu > 0.3) = 0.05 \Rightarrow \lambda_\nu = 10.0$ |
 
-Los interceptos reciben priors vagos: $\mu_k \sim \mathcal{N}(0, 100^2)$. El modelo se ajusta conjuntamente en Stan (Carpenter et al., 2017) usando NUTS con 4 cadenas × 2000 iteraciones (1000 calentamiento), `adapt_delta = 0.9`.
+Los coeficientes de covariables $\boldsymbol{\beta}_\psi$ reciben priors vagos $\mathcal{N}(0, 10^2)$; los interceptos $\mu_\tau$ y $\mu_\phi$ reciben $\mathcal{N}(0, 100^2)$. El modelo se ajusta conjuntamente en Stan (Carpenter et al., 2017) usando NUTS con 4 cadenas × 2000 iteraciones (1000 calentamiento), `adapt_delta = 0.9`.
 
 ### Predicción
 
@@ -91,13 +91,13 @@ donde
 
 $$\mu_{\text{cond}} = \mu_k + \gamma_k^\top \Sigma_k^{-1} (\eta_k - \mu_k), \qquad \sigma^2_{\text{cond}} = \sigma_k^2 - \gamma_k^\top \Sigma_k^{-1} \gamma_k$$
 
-con $\gamma_k$ el vector de covarianza cruzada entre $s^*$ y las estaciones, y $\Sigma_k$ la matriz de covarianza estación-estación (incluyendo nugget). Para cada muestra a posteriori del campo latente $\eta_k$, se **muestrea** una predicción de esta distribución condicional, por lo que la incertidumbre de interpolación $\sigma^2_{\text{cond}}$ se propaga completamente a los niveles de retorno predictivos a posteriori. Las predicciones se calculan en una malla de 0.025° sobre Andalucía.
+con $\gamma_k$ el vector de covarianza cruzada entre $s^*$ y las estaciones, y $\Sigma_k$ la matriz de covarianza estación-estación (incluyendo nugget). Para cada muestra a posteriori del campo latente $\eta_k$, se **muestrea** una predicción de esta distribución condicional, por lo que la incertidumbre de interpolación $\sigma^2_{\text{cond}}$ se propaga completamente a los niveles de retorno predictivos a posteriori. Las predicciones se calculan en una malla de 0.005° (~500 m) sobre Andalucía.
 
 ## Resultados
 
 ### Mapas de niveles de retorno
 
-Media a posteriori de los niveles de retorno para *T* = 10, 20, 50 y 100 años, interpolados sobre Andalucía en una malla de 0.025°. Las líneas de contorno blancas marcan los umbrales de alarma AEMET (80 y 120 mm).
+Media a posteriori de los niveles de retorno para *T* = 10, 20, 50 y 100 años, interpolados sobre Andalucía en una malla de 0.005° (~500 m).
 
 ![Mapas de niveles de retorno](figures/es/return_level_maps.png)
 

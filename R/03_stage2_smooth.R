@@ -6,11 +6,10 @@
 # Model structure (following Hazra, Huser & Johannesson, BLGM 2023 Ch.7):
 #   eta_psi(s) = X(s)' beta_psi + f_psi(s)   (covariates + GP)
 #   eta_tau(s) = mu_tau + f_tau(s)             (intercept + GP)
-#   eta_phi(s) = mu_phi + nugget_phi * z(s)    (intercept + iid noise, NO GP)
+#   eta_phi(s) = mu_phi + f_phi(s)             (intercept + GP)
 #
-# The shape parameter phi has no spatial GP because empirical variograms
-# show negligible spatial structure. This is more parsimonious and
-# eliminates the divergences that arose from the phi GP.
+# All three parameters receive Matern(5/2) GPs. The phi GP uses tighter
+# PC priors reflecting the smaller spatial variation in the shape parameter.
 #
 # Covariates on psi: intercept, altitude (std), exposure (std), alt x exposure
 #
@@ -23,7 +22,7 @@ source("vendor/max_and_smooth/stage1_functions.R")
 
 cat("========================================\n")
 cat("STAGE 2: Matern(5/2) GP + PC priors + covariates\n")
-cat("  phi (shape): intercept + iid noise (no GP)\n")
+cat("  All 3 parameters get GPs (phi with tighter priors)\n")
 cat("========================================\n")
 
 # ---- Load Stage 1 results ----
@@ -118,29 +117,28 @@ cat("    Precision matrix:", n_total, "x", n_total, "\n")
 cat("    Non-zeros in L:", length(value), "\n")
 
 # ---- 4. PC prior rate parameters ----
-# Only for psi and tau GPs (n_gp = 2)
-n_gp <- 2L
+# All 3 GPs: psi, tau, phi (phi gets tighter priors)
+n_gp <- 3L
 
-# sigma_gp: P(sigma > 1) = 0.05  =>  lambda_s = 3.0
-lambda_s <- c(3.0, 3.0)
+# sigma_gp: psi,tau: P(sigma > 1) = 0.05 => lambda = 3.0
+#           phi:     P(sigma > 0.3) = 0.05 => lambda = 10.0
+lambda_s <- c(3.0, 3.0, 10.0)
 
-# phi_gp (range): P(rho < 0.1 deg) = 0.05  =>  lambda_rho = 0.30
-lambda_rho <- c(0.30, 0.30)
+# phi_gp (range): psi,tau: P(rho < 0.1 deg) = 0.05 => lambda = 0.30
+#                 phi:     P(rho < 0.5 deg) = 0.05 => lambda = 1.50
+lambda_rho <- c(0.30, 0.30, 1.50)
 
-# nugget: P(nugget > 0.5) = 0.05  =>  lambda_nugget = 6.0
-lambda_nugget <- c(6.0, 6.0)
+# nugget: psi,tau: P(nugget > 0.5) = 0.05 => lambda = 6.0
+#         phi:     P(nugget > 0.3) = 0.05 => lambda = 10.0
+lambda_nugget <- c(6.0, 6.0, 10.0)
 
-# Separate nugget prior for phi (iid noise)
-lambda_nugget_phi <- 6.0
-
-cat("\n  PC prior rates (psi, tau GPs only):\n")
-cat(sprintf("    lambda_s     = [%.1f, %.1f]  (P(sigma>1)=0.05)\n",
-            lambda_s[1], lambda_s[2]))
-cat(sprintf("    lambda_rho   = [%.2f, %.2f]  (P(rho<0.1)=0.05)\n",
-            lambda_rho[1], lambda_rho[2]))
-cat(sprintf("    lambda_nugget= [%.1f, %.1f]  (P(nugget>0.5)=0.05)\n",
-            lambda_nugget[1], lambda_nugget[2]))
-cat(sprintf("    lambda_nugget_phi = %.1f\n", lambda_nugget_phi))
+cat("\n  PC prior rates (psi, tau, phi GPs):\n")
+cat(sprintf("    lambda_s     = [%.1f, %.1f, %.1f]\n",
+            lambda_s[1], lambda_s[2], lambda_s[3]))
+cat(sprintf("    lambda_rho   = [%.2f, %.2f, %.2f]\n",
+            lambda_rho[1], lambda_rho[2], lambda_rho[3]))
+cat(sprintf("    lambda_nugget= [%.1f, %.1f, %.1f]\n",
+            lambda_nugget[1], lambda_nugget[2], lambda_nugget[3]))
 
 # ---- 5. Prepare Stan data ----
 cat("  Preparing Stan data...\n")
@@ -161,8 +159,7 @@ stan_data <- list(
   prior_sd_beta    = 10.0,
   lambda_s         = lambda_s,
   lambda_rho       = lambda_rho,
-  lambda_nugget    = lambda_nugget,
-  lambda_nugget_phi = lambda_nugget_phi
+  lambda_nugget    = lambda_nugget
 )
 
 # ---- 6. Prepare initial values ----
@@ -184,12 +181,10 @@ inits <- list(
   beta_psi   = beta_psi_init,
   mu_tau     = mu_tau,
   mu_phi     = mu_phi,
-  sigma_gp   = c(sd_psi, sd_tau),          # only psi, tau
-  phi_gp     = c(0.3, 0.3),                # only psi, tau
-  nugget     = c(0.01, 0.01),              # only psi, tau
-  nugget_phi = max(sd_phi, 0.01),          # iid noise SD for phi
-  eta_raw_gp = cbind(psi_raw, tau_raw),    # non-centered GP (psi, tau)
-  phi_raw    = phi_raw                      # non-centered iid (phi)
+  sigma_gp   = c(sd_psi, sd_tau, max(sd_phi, 0.01)),
+  phi_gp     = c(0.3, 0.3, 0.5),
+  nugget     = c(0.01, 0.01, 0.01),
+  eta_raw    = cbind(psi_raw, tau_raw, phi_raw)
 )
 
 cat(sprintf("  OLS init for beta_psi: [%.3f, %.3f, %.3f, %.3f]\n",
@@ -222,7 +217,7 @@ cat("\n  === Stan Diagnostics ===\n")
 cat("  Beta_psi (covariate effects on GEV location):\n")
 print(fit$summary(c("beta_psi")))
 cat("\n  Intercepts and GP hyperparameters:\n")
-print(fit$summary(c("mu_tau", "mu_phi", "sigma_gp", "phi_gp", "nugget", "nugget_phi")))
+print(fit$summary(c("mu_tau", "mu_phi", "sigma_gp", "phi_gp", "nugget")))
 
 diag_summary <- fit$diagnostic_summary()
 cat("\n  Divergences per chain:", diag_summary$num_divergent, "\n")
@@ -244,13 +239,12 @@ phi_draws <- as.matrix(draws[, phi_cols])
 beta_psi_cols <- paste0("beta_psi[", 1:n_cov_psi, "]")
 beta_psi_draws <- as.matrix(draws[, beta_psi_cols])
 
-mu_tau_draws    <- as.numeric(draws[, "mu_tau"])
-mu_phi_draws    <- as.numeric(draws[, "mu_phi"])
-nugget_phi_draws <- as.numeric(draws[, "nugget_phi"])
+mu_tau_draws <- as.numeric(draws[, "mu_tau"])
+mu_phi_draws <- as.numeric(draws[, "mu_phi"])
 
-sigma_gp_draws <- as.matrix(draws[, c("sigma_gp[1]", "sigma_gp[2]")])
-phi_gp_draws   <- as.matrix(draws[, c("phi_gp[1]", "phi_gp[2]")])
-nugget_draws   <- as.matrix(draws[, c("nugget[1]", "nugget[2]")])
+sigma_gp_draws <- as.matrix(draws[, c("sigma_gp[1]", "sigma_gp[2]", "sigma_gp[3]")])
+phi_gp_draws   <- as.matrix(draws[, c("phi_gp[1]", "phi_gp[2]", "phi_gp[3]")])
+nugget_draws   <- as.matrix(draws[, c("nugget[1]", "nugget[2]", "nugget[3]")])
 
 result <- list(
   psi.selected = psi_draws,
@@ -270,19 +264,19 @@ result <- list(
   beta_tau = mu_tau_draws,
   beta_phi = mu_phi_draws,
 
-  # GP hyperparameters (psi, tau only)
+  # GP hyperparameters (psi, tau, phi)
   sigma_gp_psi = sigma_gp_draws[, 1],
   sigma_gp_tau = sigma_gp_draws[, 2],
+  sigma_gp_phi = sigma_gp_draws[, 3],
   phi_gp_psi   = phi_gp_draws[, 1],
   phi_gp_tau   = phi_gp_draws[, 2],
+  phi_gp_phi   = phi_gp_draws[, 3],
   nugget_psi   = nugget_draws[, 1],
   nugget_tau   = nugget_draws[, 2],
+  nugget_phi   = nugget_draws[, 3],
 
-  # Phi: iid noise SD (no GP)
-  nugget_phi   = nugget_phi_draws,
-
-  # Flag: phi has no spatial GP
-  phi_has_gp = FALSE,
+  # Flag: phi has spatial GP
+  phi_has_gp = TRUE,
 
   # Covariate standardisation parameters (needed for prediction)
   cov_standardisation = list(
@@ -290,11 +284,10 @@ result <- list(
     exp_mean = exp_mean, exp_sd = exp_sd
   ),
 
-  method   = "Matern52_GP_PC_cov_phi_iid_Stan",
+  method   = "Matern52_GP_PC_cov_Stan",
   minutes  = elapsed / 60,
   pc_prior_rates = list(lambda_s = lambda_s, lambda_rho = lambda_rho,
-                        lambda_nugget = lambda_nugget,
-                        lambda_nugget_phi = lambda_nugget_phi),
+                        lambda_nugget = lambda_nugget),
   stan_fit = fit
 )
 

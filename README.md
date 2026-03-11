@@ -51,9 +51,9 @@ The Stage 1 estimates $\hat{\eta}_i = (\hat{\psi}_i, \hat{\tau}_i, \hat{\phi}_i)
 
 $$\eta_\psi(s) = \mathbf{x}(s)^\top \boldsymbol{\beta}_\psi + f_\psi(s)$$
 $$\eta_\tau(s) = \mu_\tau + f_\tau(s)$$
-$$\eta_\phi(s) = \mu_\phi + \nu_\phi \, z(s), \quad z(s) \sim \mathcal{N}(0, 1)$$
+$$\eta_\phi(s) = \mu_\phi + f_\phi(s)$$
 
-The **location parameter** $\psi$ includes covariates and a spatial GP; the **scale ratio** $\tau$ has an intercept and spatial GP; the **shape parameter** $\phi$ has only an intercept plus independent (iid) noise, reflecting the negligible spatial structure observed in empirical variograms of $\hat{\phi}$.
+The **location parameter** $\psi$ includes covariates and a spatial GP; the **scale ratio** $\tau$ has an intercept and spatial GP; the **shape parameter** $\phi$ has an intercept and spatial GP with tighter PC priors reflecting the smaller spatial variation in the shape parameter.
 
 #### Covariates on location ($\psi$)
 
@@ -69,7 +69,7 @@ Altitude and exposure are standardised to zero mean and unit variance at the sta
 
 #### Matérn(5/2) Gaussian process
 
-The spatial random effects $f_\psi$ and $f_\tau$ each receive an independent Matérn(5/2) GP prior:
+The spatial random effects $f_\psi$, $f_\tau$, and $f_\phi$ each receive an independent Matérn(5/2) GP prior:
 
 $$C_k(d) = \sigma_k^2 \left(1 + \frac{\sqrt{5} d}{\rho_k} + \frac{5 d^2}{3 \rho_k^2}\right) \exp\left(-\frac{\sqrt{5} d}{\rho_k}\right)$$
 
@@ -85,19 +85,19 @@ which decouples the computationally expensive per-station PPP fits from the spat
 
 #### Non-centered parameterisation
 
-To improve HMC sampling efficiency, the GP is parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$. The shape parameter uses an analogous non-centered form: $\eta_\phi = \mu_\phi + \nu_\phi z$ with $z \sim \mathcal{N}(0, I)$.
+To improve HMC sampling efficiency, all three GPs are parameterised as $\eta_k = \mu_k + L_k z_k$, where $L_k$ is the Cholesky factor of the covariance matrix and $z_k \sim \mathcal{N}(0, I)$.
 
 #### Penalised complexity priors
 
-Following Fuglstad et al. (2019), the GP hyperparameters for $\psi$ and $\tau$ receive PC priors calibrated as:
+Following Fuglstad et al. (2019), the GP hyperparameters receive PC priors. The $\psi$ and $\tau$ GPs share one calibration; the $\phi$ GP receives tighter priors reflecting the smaller spatial variation in the shape parameter:
 
-| Parameter | Prior | Calibration |
-|-----------|-------|-------------|
-| $\sigma_k$ (marginal SD) | Exponential | $P(\sigma > 1) = 0.05 \Rightarrow \lambda_\sigma = 3.0$ |
-| $\rho_k$ (range) | PC prior on range | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ |
-| $\nu_k$ (nugget SD) | Exponential | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ |
+| Parameter | $\psi$, $\tau$ | $\phi$ |
+|-----------|----------------|--------|
+| $\sigma_k$ (marginal SD) | $P(\sigma > 1) = 0.05 \Rightarrow \lambda_\sigma = 3.0$ | $P(\sigma > 0.3) = 0.05 \Rightarrow \lambda_\sigma = 10.0$ |
+| $\rho_k$ (range) | $P(\rho < 0.1°) = 0.05 \Rightarrow \lambda_\rho = 0.30$ | $P(\rho < 0.5°) = 0.05 \Rightarrow \lambda_\rho = 1.50$ |
+| $\nu_k$ (nugget SD) | $P(\nu > 0.5) = 0.05 \Rightarrow \lambda_\nu = 6.0$ | $P(\nu > 0.3) = 0.05 \Rightarrow \lambda_\nu = 10.0$ |
 
-The iid noise standard deviation for $\phi$ receives the same exponential prior: $P(\nu_\phi > 0.5) = 0.05$. Covariate coefficients $\boldsymbol{\beta}_\psi$ receive vague priors $\mathcal{N}(0, 10^2)$; the intercepts $\mu_\tau$ and $\mu_\phi$ receive $\mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 1000 iterations (1000 warmup), `adapt_delta = 0.9`.
+Covariate coefficients $\boldsymbol{\beta}_\psi$ receive vague priors $\mathcal{N}(0, 10^2)$; the intercepts $\mu_\tau$ and $\mu_\phi$ receive $\mathcal{N}(0, 100^2)$. The model is fitted jointly in Stan (Carpenter et al., 2017) using NUTS with 4 chains × 1000 iterations (1000 warmup), `adapt_delta = 0.9`.
 
 ### Prediction
 
@@ -129,7 +129,7 @@ with $\boldsymbol{\gamma}_k$ the cross-covariance vector between $s^*$ and the s
 
 #### Shape parameter ($\phi$)
 
-Since $\phi$ has no spatial GP, predictions at new locations are drawn from the intercept plus iid noise: $\eta_\phi(s^*) = \mu_\phi + \nu_\phi \, z$, $z \sim \mathcal{N}(0, 1)$, independently at each grid point.
+The shape parameter $\phi$ receives the same conditional GP prediction as $\psi$ and $\tau$, using the $\phi$-specific GP hyperparameters $(\sigma_\phi, \rho_\phi, \nu_\phi)$. This preserves the observed east-west gradient in the GEV shape parameter, which reflects heavier-tailed Mediterranean convective precipitation in eastern Andalucía.
 
 #### Grid
 

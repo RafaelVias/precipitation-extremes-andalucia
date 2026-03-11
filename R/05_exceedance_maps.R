@@ -38,9 +38,8 @@ mu_tau_draws   <- s2$beta_tau         # length n_draws
 mu_phi_draws   <- s2$beta_phi         # length n_draws
 cov_std        <- s2$cov_standardisation
 
-# phi has no GP — only intercept + iid noise
-phi_has_gp       <- isTRUE(s2$phi_has_gp)
-nugget_phi_draws <- s2$nugget_phi     # length n_draws (iid noise SD)
+# phi GP flag
+phi_has_gp <- isTRUE(s2$phi_has_gp)
 
 cat("  Stations:", ns, "| Draws:", n_draws, "\n")
 cat(sprintf("  Covariates: %d coefficients for psi\n", ncol(beta_psi_draws)))
@@ -87,10 +86,10 @@ matern52 <- function(d, sigma2, phi) {
   sigma2 * (1 + s5 + s5^2 / 3) * exp(-s5)
 }
 
-# GP hyperparameters (posterior means) — only for psi and tau
-sigma_gp <- c(mean(s2$sigma_gp_psi), mean(s2$sigma_gp_tau))
-phi_gp   <- c(mean(s2$phi_gp_psi), mean(s2$phi_gp_tau))
-nugget   <- c(mean(s2$nugget_psi), mean(s2$nugget_tau))
+# GP hyperparameters (posterior means) — all 3 GPs
+sigma_gp <- c(mean(s2$sigma_gp_psi), mean(s2$sigma_gp_tau), mean(s2$sigma_gp_phi))
+phi_gp   <- c(mean(s2$phi_gp_psi), mean(s2$phi_gp_tau), mean(s2$phi_gp_phi))
+nugget   <- c(mean(s2$nugget_psi), mean(s2$nugget_tau), mean(s2$nugget_phi))
 
 dist_ss <- as.matrix(dist(loc))
 # Compute prediction-to-station distances directly (avoids huge intermediate matrix)
@@ -100,7 +99,7 @@ for (j in seq_len(ns)) {
                         (pred_pts$lat - loc[j, "lat"])^2)
 }
 
-compute_kriging <- function(k) {
+compute_cond_gp <- function(k) {
   sig2 <- sigma_gp[k]^2
   nug2 <- nugget[k]^2
   phi  <- phi_gp[k]
@@ -114,8 +113,8 @@ compute_kriging <- function(k) {
   list(W = W, cond_sd = sqrt(cond_var))
 }
 
-krig <- lapply(1:2, compute_kriging)  # only psi and tau
-cat("  Kriging weights computed (psi and tau only — phi is iid)\n")
+krig <- lapply(1:3, compute_cond_gp)  # psi, tau, phi
+cat("  Conditional GP weights computed (psi, tau, phi)\n")
 
 # ---- 4. Compute exceedance probabilities ----
 cat("Computing exceedance probabilities at grid points...\n")
@@ -141,11 +140,11 @@ n_hor <- length(horizons)
 exc_mean <- array(0, dim = c(n_pred, n_thr, n_hor))
 exc_sd   <- array(0, dim = c(n_pred, n_thr, n_hor))
 
-# GP residuals: eta - covariate mean
+# GP residuals: eta - covariate/intercept mean
 mean_psi_at_stations <- beta_psi_draws %*% t(X_stn)   # n_draws × ns
 resid_psi <- eta_psi_draws - mean_psi_at_stations
 resid_tau <- sweep(eta_tau_draws, 1, mu_tau_draws, "-")
-# phi: no GP residuals (iid noise, not spatially correlated)
+resid_phi <- sweep(eta_phi_draws, 1, mu_phi_draws, "-")
 
 chunk_size <- 2000
 n_chunks <- ceiling(n_pred / chunk_size)
@@ -180,16 +179,18 @@ for (ch in seq_len(n_chunks)) {
     pred
   }
 
-  # Predict phi: intercept + iid noise (no spatial kriging)
-  predict_phi_iid <- function() {
-    noise_sd <- matrix(nugget_phi_draws, nrow = n_draws, ncol = nc)
-    sweep(matrix(rnorm(n_draws * nc), n_draws, nc) * noise_sd,
-          1, mu_phi_draws, "+")
+  # Predict phi: scalar intercept + conditional GP residual + conditional noise
+  predict_phi <- function() {
+    W_ch <- krig[[3]]$W[idx, , drop = FALSE]
+    sd_ch <- matrix(krig[[3]]$cond_sd[idx], nrow = n_draws, ncol = nc, byrow = TRUE)
+    pred <- sweep(t(W_ch %*% t(resid_phi)), 1, mu_phi_draws, "+")
+    pred <- pred + matrix(rnorm(n_draws * nc), n_draws, nc) * sd_ch
+    pred
   }
 
   psi_ch <- predict_psi_cov()
   tau_ch <- predict_tau()
-  phi_ch <- predict_phi_iid()
+  phi_ch <- predict_phi()
 
   mu_gev    <- exp(psi_ch)                  # n_draws x nc
   sigma_gev <- exp(psi_ch + tau_ch)
