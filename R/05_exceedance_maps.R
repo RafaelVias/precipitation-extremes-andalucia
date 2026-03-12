@@ -275,16 +275,24 @@ base_theme <- theme_minimal(base_size = 10) +
         legend.key.height = unit(0.7, "cm"),
         plot.margin = margin(2, 2, 2, 2))
 
-make_panel <- function(data, fill_var, fill_label, title, option = "D",
+# Extended magma: black → indigo → purple → blue → teal → green → yellow → orange → red
+exc_colours <- c("#000004", "#1B0C42", "#4A0C6B", "#1B4F8A",
+                 "#21908C", "#5DC863", "#FDE725", "#FCA636", "#E03020")
+# Cool ramp for SD (white → ice → light blue → sky → steel → blue → dark blue → navy)
+exc_sd_colours <- c("#FFFFFF", "#E0F0FF", "#B3D9F7", "#6BAED6",
+                    "#3A8EC4", "#2171B5", "#0A4A90", "#08306B")
+
+make_panel <- function(data, fill_var, fill_label, title, option = "B",
                        limits = c(0, 1), oob = scales::squish,
                        contour_breaks = NULL) {
+  colours <- if (option == "A") exc_sd_colours else exc_colours
   p <- ggplot() +
     geom_sf(data = port_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_sf(data = mor_crop, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_tile(data = data, aes(x = lon, y = lat, fill = .data[[fill_var]]),
               width = tile_res, height = tile_res) +
-    scale_fill_viridis_c(option = option, name = fill_label,
+    scale_fill_gradientn(colours = colours, name = fill_label,
                          limits = limits, oob = oob)
 
   p + geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +

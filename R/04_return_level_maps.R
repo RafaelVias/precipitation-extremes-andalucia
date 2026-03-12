@@ -257,6 +257,10 @@ alarm_colours    <- c("#FF8C00", "red") # orange, red
 
 legend_breaks <- seq(0, ceiling(rl_max / 50) * 50, by = 50)
 
+# Extended magma: black → indigo → purple → blue → teal → green → yellow → orange → red
+rl_colours <- c("#000004", "#1B0C42", "#4A0C6B", "#1B4F8A",
+                "#21908C", "#5DC863", "#FDE725", "#FCA636", "#E03020")
+
 make_panel <- function(rp_val) {
   g_sub <- grid_df[grid_df$rp == rp_val, ]
   s_sub <- stn_df[stn_df$rp == rp_val, ]
@@ -268,7 +272,7 @@ make_panel <- function(rp_val) {
     geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_tile(data = g_sub, aes(x = lon, y = lat, fill = rl_mean),
               width = pred_res, height = pred_res) +
-    scale_fill_viridis_c(option = "B", name = "mm",
+    scale_fill_gradientn(colours = rl_colours, name = "mm",
                          limits = c(rl_min, rl_max),
                          breaks = legend_breaks)
 
@@ -307,6 +311,10 @@ sd_min <- min(grid_df$rl_sd)
 sd_max <- max(grid_df$rl_sd)
 sd_breaks <- seq(0, ceiling(sd_max / 10) * 10, by = 10)
 
+# SD: cool ramp (white → ice → light blue → sky → steel → blue → dark blue → navy)
+sd_colours <- c("#FFFFFF", "#E0F0FF", "#B3D9F7", "#6BAED6",
+                "#3A8EC4", "#2171B5", "#0A4A90", "#08306B")
+
 make_sd_panel <- function(rp_val) {
   g_sub <- grid_df[grid_df$rp == rp_val, ]
 
@@ -316,7 +324,7 @@ make_sd_panel <- function(rp_val) {
     geom_sf(data = neighbours, fill = "grey90", colour = "grey70", linewidth = 0.2) +
     geom_tile(data = g_sub, aes(x = lon, y = lat, fill = rl_sd),
               width = pred_res, height = pred_res) +
-    scale_fill_viridis_c(option = "A", name = "SD (mm)",
+    scale_fill_gradientn(colours = sd_colours, name = "SD (mm)",
                          limits = c(sd_min, sd_max),
                          breaks = sd_breaks) +
     geom_sf(data = andalucia, fill = NA, colour = "grey30", linewidth = 0.4) +
